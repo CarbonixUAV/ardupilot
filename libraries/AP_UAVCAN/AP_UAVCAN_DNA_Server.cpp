@@ -455,6 +455,9 @@ void AP_UAVCAN_DNA_Server::verify_nodes(AP_UAVCAN *ap_uavcan)
         if (isNodeIDVerified(curr_verifying_node)) {
             // remove verification flag for this node
             verified_mask.clear(curr_verifying_node);
+
+            // HEALTH_CRITICAL isnt correct would prefer HEALTH_UKNOWN or put _last_known_health_status
+            log_NodeStatus(curr_verifying_node, 0, UAVCAN_NODE_HEALTH_CRITICAL, UAVCAN_NODE_MODE_OFFLINE);  // UAVCAN_NODE_MODE_OFFLINE
         }
     }
 
@@ -484,6 +487,9 @@ void AP_UAVCAN_DNA_Server::handleNodeStatus(uint8_t node_id, const NodeStatusCb 
         return;
     }
     WITH_SEMAPHORE(sem);
+
+    log_NodeStatus(node_id, cb.msg->uptime_sec, cb.msg->health, cb.msg->mode);
+
     if (!isNodeIDVerified(node_id)) {
         //immediately begin verification of the node_id
         for (uint8_t i = 0; i < HAL_MAX_CAN_PROTOCOL_DRIVERS; i++) {
@@ -577,6 +583,31 @@ void AP_UAVCAN_DNA_Server::handleNodeInfo(uint8_t node_id, uint8_t unique_id[], 
         if (node_id == curr_verifying_node) {
             nodeInfo_resp_rcvd = true;
         }
+    }
+}
+
+void AP_UAVCAN_DNA_Server::log_NodeStatus(uint8_t node_id, uint32_t uptime_sec, uint8_t healthy, uint8_t mode)
+{
+    if (node_id > MAX_NODE_ID) {
+        return;
+    }
+
+    /*
+      if we haven't logged this node then log it now
+     */
+    if (!logged_CANH.get(node_id) && AP::logger().logging_started()) {
+        logged_CANH.set(node_id);
+        // @LoggerMessage: CANH
+        // @Description: CAN Health Status
+        // @Field: TimeUS: Time since system startup
+        // @Field: NodeId: Node ID
+        // @Field: Healthy
+        AP::logger().Write("CANH",
+                "TimeUS," "NodeID," "Healthy", // labels
+                "s"           "#"     "-"    , // units
+                "F"           "-"     "-"    , // multipliers
+                "Q"           "B"     "B"    , // types
+                AP_HAL::micros64(), node_id, healthy);
     }
 }
 
