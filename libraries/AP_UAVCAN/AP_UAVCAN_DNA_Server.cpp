@@ -456,9 +456,9 @@ void AP_UAVCAN_DNA_Server::verify_nodes(AP_UAVCAN *ap_uavcan)
             // remove verification flag for this node
             verified_mask.clear(curr_verifying_node);
 
-            // HEALTH_CRITICAL isnt correct would prefer HEALTH_UKNOWN or put _last_known_health_status
-            log_NodeStatus(curr_verifying_node, 0, UAVCAN_NODE_HEALTH_CRITICAL, UAVCAN_NODE_MODE_OFFLINE);  // UAVCAN_NODE_MODE_OFFLINE
         }
+        // HEALTH_CRITICAL isnt correct would prefer HEALTH_UKNOWN or put _last_known_health_status
+        log_NodeStatus(curr_verifying_node, 0, UAVCAN_NODE_HEALTH_CRITICAL, UAVCAN_NODE_MODE_OFFLINE);  // UAVCAN_NODE_MODE_OFFLINE
     }
 
     last_verification_request = now;
@@ -597,18 +597,18 @@ void AP_UAVCAN_DNA_Server::log_NodeStatus(uint8_t node_id, uint32_t uptime_sec, 
      */
     if (!logged_CANH.get(node_id) && AP::logger().logging_started()) {
         logged_CANH.set(node_id);
-        // @LoggerMessage: CANH
-        // @Description: CAN Health Status
-        // @Field: TimeUS: Time since system startup
-        // @Field: NodeId: Node ID
-        // @Field: Healthy
-        AP::logger().Write("CANH",
-                "TimeUS," "NodeID," "Healthy", // labels
-                "s"           "#"     "-"    , // units
-                "F"           "-"     "-"    , // multipliers
-                "Q"           "B"     "B"    , // types
-                AP_HAL::micros64(), node_id, healthy);
     }
+    // @LoggerMessage: CANH
+    // @Description: CAN Health Status
+    // @Field: TimeUS: Time since system startup
+    // @Field: NodeId: Node ID
+    // @Field: Healthy
+    AP::logger().Write("CANH",
+            "TimeUS," "NodeID," "Healthy", // labels
+            "s"           "#"     "-"    , // units
+            "F"           "-"     "-"    , // multipliers
+            "Q"           "B"     "B"    , // types
+            AP_HAL::micros64(), node_id, healthy);
 }
 
 //Trampoline call for handleNodeInfo member call
