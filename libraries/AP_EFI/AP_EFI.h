@@ -68,12 +68,14 @@ public:
     static const struct AP_Param::GroupInfo var_info[];
 
     // Backend driver types
-    enum class Type : uint8_t {
-        NONE       = 0,
+    enum class Type : uint8_t
+    {
+        NONE = 0,
         MegaSquirt = 1,
-        NWPMU     = 2,
-        Lutan     = 3,
+        NWPMU = 2,
+        Lutan = 3,
         // LOWEHEISER = 4,
+        IntelliJect = 5,
     };
 
     static AP_EFI *get_singleton(void) {

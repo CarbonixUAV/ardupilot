@@ -20,6 +20,7 @@
 #include "AP_EFI_Serial_MS.h"
 #include "AP_EFI_Serial_Lutan.h"
 #include "AP_EFI_NWPMU.h"
+#include "AP_EFI_Serial_IJ.h"
 #include <AP_Logger/AP_Logger.h>
 
 #if HAL_MAX_CAN_PROTOCOL_DRIVERS
@@ -33,7 +34,7 @@ const AP_Param::GroupInfo AP_EFI::var_info[] = {
     // @Param: _TYPE
     // @DisplayName: EFI communication type
     // @Description: What method of communication is used for EFI #1
-    // @Values: 0:None,1:Serial-MS,2:NWPMU,3:Serial-Lutan
+    // @Values: 0:None,1:Serial-MS,2:NWPMU,3:Serial-Lutan,4:Serial-LoweHeiser,5:Serial-IntelliJect
     // @User: Advanced
     // @RebootRequired: True
     AP_GROUPINFO_FLAGS("_TYPE", 1, AP_EFI, type, 0, AP_PARAM_FLAG_ENABLE),
@@ -43,6 +44,7 @@ const AP_Param::GroupInfo AP_EFI::var_info[] = {
     // @Description: Used to calibrate fuel flow for MS protocol (Slope)
     // @Range: 0 1
     // @User: Advanced
+    // @RebootRequired: False
     AP_GROUPINFO("_COEF1", 2, AP_EFI, coef1, 0),
 
     // @Param: _COEF2
@@ -50,6 +52,7 @@ const AP_Param::GroupInfo AP_EFI::var_info[] = {
     // @Description: Used to calibrate fuel flow for MS protocol (Offset)
     // @Range: 0 10
     // @User: Advanced
+    // @RebootRequired: False
     AP_GROUPINFO("_COEF2", 3, AP_EFI, coef2, 0),
 
     AP_GROUPEND
@@ -67,11 +70,14 @@ AP_EFI::AP_EFI()
 // Initialize backends based on existing params
 void AP_EFI::init(void)
 {
-    if (backend != nullptr) {
+    if (backend != nullptr)
+    {
         // Init called twice, perhaps
         return;
     }
-    switch ((Type)type.get()) {
+
+    switch ((Type)type.get())
+    {
     case Type::NONE:
         break;
     case Type::MegaSquirt:
@@ -84,6 +90,9 @@ void AP_EFI::init(void)
 #if HAL_EFI_NWPWU_ENABLED
         backend = new AP_EFI_NWPMU(*this);
 #endif
+        break;
+    case Type::IntelliJect:
+        backend = new AP_EFI_Serial_IJ(*this);
         break;
     default:
         gcs().send_text(MAV_SEVERITY_INFO, "Unknown EFI type");
