@@ -17,15 +17,11 @@
 
 #include <AP_HAL/AP_HAL.h>
 #include "AP_EFI_Serial_Intelliject.h"
-//#include "stdio.h"
-
 #include "GCS_MAVLink/GCS.h"
 
 #if HAL_EFI_ENABLED
 #include <AP_SerialManager/AP_SerialManager.h>
 
-
-// extern const AP_HAL::HAL &hal;
 
 uint8_t raw_buffer[2048] = {0};
 
@@ -50,6 +46,10 @@ void AP_EFI_Serial_Intelliject::update()
 }
 
 
+/*!
+ * \return status of successful read of slow/fast telemetry
+ *         true - success; false - failure.
+ */
 bool AP_EFI_Serial_Intelliject::read_intelliJect_efi_packets(int bytes_read)
 {
     bool status = false;
