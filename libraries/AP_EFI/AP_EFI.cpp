@@ -20,7 +20,7 @@
 #include "AP_EFI_Serial_MS.h"
 #include "AP_EFI_Serial_Lutan.h"
 #include "AP_EFI_NWPMU.h"
-#include "AP_EFI_Serial_IJ.h"
+#include "AP_EFI_Serial_Intelliject.h"
 #include <AP_Logger/AP_Logger.h>
 
 #if HAL_MAX_CAN_PROTOCOL_DRIVERS
@@ -92,7 +92,7 @@ void AP_EFI::init(void)
 #endif
         break;
     case Type::IntelliJect:
-        backend = new AP_EFI_Serial_IJ(*this);
+        backend = new AP_EFI_Serial_Intelliject(*this);
         break;
     default:
         gcs().send_text(MAV_SEVERITY_INFO, "Unknown EFI type");
