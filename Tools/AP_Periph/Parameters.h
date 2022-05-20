@@ -54,6 +54,7 @@ public:
         k_param_can_fdmode,
         k_param_can_fdbaudrate0,
         k_param_can_fdbaudrate1,
+        k_param_can_node_start_count,
     };
 
     AP_Int16 format_version;
@@ -132,6 +133,9 @@ public:
 #else
     static constexpr uint8_t can_fdmode = 0;
 #endif
+
+    AP_Int32 can_node_start_count;
+
     Parameters() {}
 };
 
