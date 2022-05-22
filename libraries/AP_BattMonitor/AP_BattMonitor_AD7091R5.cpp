@@ -8,6 +8,8 @@
  * Only the First instance of Battery Monitor will be reading the values from IC over I2C.
  * Make sure you understand the method of calculation usd in this driver before using it.
  * 
+ * Pin number represents 50 = pin 1, 51 = pin 2 and so on 52, 53
+ * 
  */
 // 
 
@@ -16,7 +18,21 @@
 #include <AP_HAL/AP_HAL.h>
 #include <AP_Common/AP_Common.h>
 #include <AP_Math/AP_Math.h>
-#include <GCS_MAVLink/GCS.h>
+
+#define AD7091R5_I2C_ADDR        0x2F // A0 and A1 tied to GND
+#define AD7091R5_I2C_BUS         0
+#define AD7091R5_RESET           0x02
+#define AD7091R5_RESULT_ADDR     0x00
+#define AD7091R5_CHAN_ADDR       0x01
+#define AD7091R5_CONF_ADDR       0x02
+#define AD7091R5_CH_ID(x)        ((x >> 5) & 0x03)
+#define AD7091R5_RES_MASK        0x0F
+#define AD7091R5_REF             3.3f
+#define AD7091R5_RESOLUTION      (float)4096
+#define AD7091R5_PERIOD_USEC     100000
+#define AD7091R5_BASE_PIN        50
+
+
 
 extern const AP_HAL::HAL& hal;
 const AP_Param::GroupInfo AP_BattMonitor_AD7091R5::var_info[] = {
@@ -94,16 +110,15 @@ AP_BattMonitor_AD7091R5::AP_BattMonitor_AD7091R5(AP_BattMonitor &mon,
  */
 void AP_BattMonitor_AD7091R5::init(){
     // voltage and current pins from params and check if there are in range
-    if (_volt_pin >= 1 && _volt_pin <= AD7091R5_NO_OF_CHANNELS) {
-        volt_buff_pt = _volt_pin.get() -1;
+    if (_volt_pin >= AD7091R5_BASE_PIN && _volt_pin <= AD7091R5_BASE_PIN + AD7091R5_NO_OF_CHANNELS) {
+        volt_buff_pt = AD7091R5_BASE_PIN - _volt_pin.get();
     }
-    if (_curr_pin >= 1 && _curr_pin <= AD7091R5_NO_OF_CHANNELS) {
-        curr_buff_pt = _curr_pin.get() -1;
+    if (_curr_pin >= AD7091R5_BASE_PIN && _curr_pin <= AD7091R5_BASE_PIN + AD7091R5_NO_OF_CHANNELS) {
+        curr_buff_pt = AD7091R5_BASE_PIN - _curr_pin.get();
     }
 
     if (_first) { // only the first instance read the i2c device
         _first = false;
-        _i2c_polling = true;
         _state.healthy = false;
         // probe i2c device
         _dev = hal.i2c_mgr->get_device(AD7091R5_I2C_BUS, AD7091R5_I2C_ADDR);
@@ -114,7 +129,7 @@ void AP_BattMonitor_AD7091R5::init(){
             if (_reset() && _config()) {
                 _state.healthy = true;
                 _dev->set_retries(2); // drop to 2 retries for runtime
-                _dev->register_periodic_callback(AD7091R5_PERIOD_USEC, FUNCTOR_BIND_MEMBER(&AP_BattMonitor_AD7091R5::_timer, void));
+                _dev->register_periodic_callback(AD7091R5_PERIOD_USEC, FUNCTOR_BIND_MEMBER(&AP_BattMonitor_AD7091R5::_read_adc, void));
             }
         }
     }
@@ -128,7 +143,7 @@ void AP_BattMonitor_AD7091R5::init(){
  * - set address pointer register to read the adc results
  */
 bool AP_BattMonitor_AD7091R5::_config(){
-    uint8_t data[6] = {AD7091R5_CONF_ADDR, reg_conf_h, reg_conf_l, AD7091R5_CHAN_ADDR, reg_chan, AD7091R5_RESULT_ADDR};
+    uint8_t data[6] = {AD7091R5_CONF_ADDR, AD7091R5_CONF_CMD, AD7091R5_CONF_PDOWN0, AD7091R5_CHAN_ADDR, AD7091R5_CHAN_ALL, AD7091R5_RESULT_ADDR};
     return _dev->transfer(data, sizeof(data), nullptr, 0);
 }
 
@@ -148,42 +163,20 @@ void AP_BattMonitor_AD7091R5::read(){
 
     // calculate time since last current read
     uint32_t tnow = AP_HAL::micros();
-    float dt = tnow - _state.last_time_micros;
+    uint32_t dt_us = tnow - _state.last_time_micros;
 
     // update total current drawn since startup
-    if (_state.last_time_micros != 0 && dt < 2000000.0f) {
-        // .0002778 is 1/3600 (conversion to hours)
-        float mah = _state.current_amps * dt * 0.0000002778f;
-        _state.consumed_mah += mah;
-        _state.consumed_wh  += 0.001f * mah * _state.voltage;
-    }
+    update_consumed(_state, dt_us);
 
-    GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Curr Pin : %d, raw_Value : %f final Value : %f _curr_amp_offset : %f  _curr_amp_per_volt : %f ",
-                                                curr_buff_pt, 
-                                                _data_to_volt(_analog_data[curr_buff_pt].data),
-                                                _state.current_amps,
-                                                _curr_amp_offset.get(),
-                                                _curr_amp_per_volt.get()
-                                                );         
     // record time
     _state.last_time_micros = tnow;
 }
 
 /**
- * @brief Timmer function to read raw adc
- * 
- */
-void AP_BattMonitor_AD7091R5::_timer(){
-    _read_adc();
-}
-
-/**
  * @brief read all four channels and store the results
  * 
- * @return true 
- * @return false 
  */
-bool AP_BattMonitor_AD7091R5::_read_adc() {
+void AP_BattMonitor_AD7091R5::_read_adc() {
     uint8_t data[AD7091R5_NO_OF_CHANNELS*2] = {0};
     bool ret = _dev->transfer(nullptr, 0, data, sizeof(data));
     if (ret) {
@@ -192,11 +185,7 @@ bool AP_BattMonitor_AD7091R5::_read_adc() {
             uint8_t chan = AD7091R5_CH_ID(data[2*i]);
             _analog_data[chan].data = ((uint16_t)(data[2*i]&AD7091R5_RES_MASK)<<8) | data[2*i+1];
         }
-        // GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "%1.3f , %1.3f, %1.3f , %1.3f", _data_to_volt(_analog_data[0].data),_data_to_volt(_analog_data[1].data)
-        //                                                                 , _data_to_volt(_analog_data[2].data),_data_to_volt(_analog_data[3].data)); 
     }
-
-    return ret;
 }
 
 /**
@@ -206,8 +195,8 @@ bool AP_BattMonitor_AD7091R5::_read_adc() {
  * @return false 
  */
 bool AP_BattMonitor_AD7091R5::_reset(){
-    uint8_t reg = reg_conf_h | AD7091R5_RESET;
-    uint8_t data[3] = {AD7091R5_CONF_ADDR, reg, reg_conf_l};
+    uint8_t reg = AD7091R5_CONF_CMD | AD7091R5_RESET;
+    uint8_t data[3] = {AD7091R5_CONF_ADDR, reg, AD7091R5_CONF_PDOWN0};
     return _dev->transfer(data, sizeof(data), nullptr, 0);
 }
 
@@ -218,8 +207,8 @@ bool AP_BattMonitor_AD7091R5::_reset(){
  * @return false 
  */
 bool AP_BattMonitor_AD7091R5::_powerdown(){
-    uint8_t reg = (reg_conf_l & ~AD7091R5_CONF_PDOWN_MASK) | AD7091R5_CONF_PDOWN2;
-    uint8_t data[3] = {AD7091R5_CONF_ADDR, reg_conf_h, reg};
+    uint8_t reg = (AD7091R5_CONF_PDOWN0 & ~AD7091R5_CONF_PDOWN_MASK) | AD7091R5_CONF_PDOWN2;
+    uint8_t data[3] = {AD7091R5_CONF_ADDR, AD7091R5_CONF_CMD, reg};
     return _dev->transfer(data, sizeof(data), nullptr, 0);
 }
 
@@ -230,7 +219,7 @@ bool AP_BattMonitor_AD7091R5::_powerdown(){
  * @return float 
  */
 float AP_BattMonitor_AD7091R5::_data_to_volt(uint32_t data){
-    return (AD7091R5_REF*(float)data)/AD7091R5_RESOLUTION;
+    return (AD7091R5_REF/AD7091R5_RESOLUTION)*data;
 }
 
 #endif // AP_BATTMON_AD7091R5_ENABLED

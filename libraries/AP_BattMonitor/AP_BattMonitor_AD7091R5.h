@@ -11,24 +11,13 @@
 #include <AP_HAL/utility/OwnPtr.h>
 #include <AP_HAL/I2CDevice.h>
 
-#define AD7091R5_I2C_ADDR        0x2F // A0 and A1 tied to GND
-#define AD7091R5_I2C_BUS         0
-#define AD7091R5_RESET           0x02
-#define AD7091R5_RESULT_ADDR     0x00
-#define AD7091R5_CHAN_ADDR       0x01
-#define AD7091R5_CONF_ADDR       0x02
+#define AD7091R5_NO_OF_CHANNELS  4
+#define AD7091R5_CONF_CMD        0x04
+#define AD7091R5_CHAN_ALL        0x0F
 #define AD7091R5_CONF_PDOWN0     0x00
 #define AD7091R5_CONF_PDOWN2     0x02
 #define AD7091R5_CONF_PDOWN3     0x03
 #define AD7091R5_CONF_PDOWN_MASK 0x03
-#define AD7091R5_CONF_CMD        0x04
-#define AD7091R5_CHAN_ALL        0x0F
-#define AD7091R5_CH_ID(x)        ((x >> 5) & 0x03)
-#define AD7091R5_RES_MASK        0x0F
-#define AD7091R5_REF             3.3
-#define AD7091R5_NO_OF_CHANNELS  4
-#define AD7091R5_RESOLUTION      (float)4096
-#define AD7091R5_PERIOD_USEC     100000
 
 class AP_BattMonitor_AD7091R5 : public AP_BattMonitor_Backend
 {
@@ -51,11 +40,10 @@ public:
     static const struct AP_Param::GroupInfo var_info[];
 
 private:
-    void _timer();
     bool _config();
     bool _reset();
     bool _powerdown();
-    bool _read_adc();
+    void _read_adc();
     float _data_to_volt(uint32_t data);
 
     static struct AnalogData {
@@ -67,12 +55,6 @@ private:
     AP_HAL::OwnPtr<AP_HAL::I2CDevice> _dev;
     uint8_t volt_buff_pt;
     uint8_t curr_buff_pt;
-    bool _i2c_polling;
-
-    //register
-    uint8_t reg_conf_l = AD7091R5_CONF_PDOWN0;  // using external reference
-    uint8_t reg_conf_h = AD7091R5_CONF_CMD;     // command mode
-    uint8_t reg_chan = AD7091R5_CHAN_ALL;
 
     protected:
 
