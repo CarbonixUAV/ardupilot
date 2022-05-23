@@ -40,8 +40,6 @@ public:
     static const struct AP_Param::GroupInfo var_info[];
 
 private:
-    bool _config();
-    bool _reset();
     bool _powerdown();
     void _read_adc();
     float _data_to_volt(uint32_t data);

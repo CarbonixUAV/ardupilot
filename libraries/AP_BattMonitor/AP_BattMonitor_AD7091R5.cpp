@@ -125,26 +125,18 @@ void AP_BattMonitor_AD7091R5::init(){
         if (_dev) {
             WITH_SEMAPHORE(_dev->get_semaphore());
             _dev->set_retries(10); // lots of retries during probe
-            //config
-            if (_reset() && _config()) {
-                _state.healthy = true;
-                _dev->set_retries(2); // drop to 2 retries for runtime
-                _dev->register_periodic_callback(AD7091R5_PERIOD_USEC, FUNCTOR_BIND_MEMBER(&AP_BattMonitor_AD7091R5::_read_adc, void));
+            //reset device
+            uint8_t temp_data[3] = {AD7091R5_CONF_ADDR, AD7091R5_CONF_CMD | AD7091R5_RESET, AD7091R5_CONF_PDOWN0};
+            if(_dev->transfer(temp_data, sizeof(temp_data), nullptr, 0)){
+                //config data
+                uint8_t temp1_data[6] = {AD7091R5_CONF_ADDR, AD7091R5_CONF_CMD, AD7091R5_CONF_PDOWN0, AD7091R5_CHAN_ADDR, AD7091R5_CHAN_ALL, AD7091R5_RESULT_ADDR};
+                if(_dev->transfer(temp1_data, sizeof(temp1_data), nullptr, 0)){
+                    _dev->set_retries(2); // drop to 2 retries for runtime
+                    _dev->register_periodic_callback(AD7091R5_PERIOD_USEC, FUNCTOR_BIND_MEMBER(&AP_BattMonitor_AD7091R5::_read_adc, void));
+                }
             }
         }
     }
-}
-
-/**
- * config the adc
- * - command mode
- * - use external 3.3 reference
- * - all channels enabled
- * - set address pointer register to read the adc results
- */
-bool AP_BattMonitor_AD7091R5::_config(){
-    uint8_t data[6] = {AD7091R5_CONF_ADDR, AD7091R5_CONF_CMD, AD7091R5_CONF_PDOWN0, AD7091R5_CHAN_ADDR, AD7091R5_CHAN_ALL, AD7091R5_RESULT_ADDR};
-    return _dev->transfer(data, sizeof(data), nullptr, 0);
 }
 
 /**
@@ -184,20 +176,9 @@ void AP_BattMonitor_AD7091R5::_read_adc() {
         for (int i=0; i<AD7091R5_NO_OF_CHANNELS; i++) {
             uint8_t chan = AD7091R5_CH_ID(data[2*i]);
             _analog_data[chan].data = ((uint16_t)(data[2*i]&AD7091R5_RES_MASK)<<8) | data[2*i+1];
-        }
+        }                    
+        _state.healthy = true;
     }
-}
-
-/**
- * @brief soft reset adc
- * 
- * @return true 
- * @return false 
- */
-bool AP_BattMonitor_AD7091R5::_reset(){
-    uint8_t reg = AD7091R5_CONF_CMD | AD7091R5_RESET;
-    uint8_t data[3] = {AD7091R5_CONF_ADDR, reg, AD7091R5_CONF_PDOWN0};
-    return _dev->transfer(data, sizeof(data), nullptr, 0);
 }
 
 /**
