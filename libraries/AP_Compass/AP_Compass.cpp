@@ -20,7 +20,7 @@
 #include "AP_Compass_LSM9DS1.h"
 #include "AP_Compass_LIS3MDL.h"
 #include "AP_Compass_AK09916.h"
-#include "AP_Compass_QMC5883L.h"
+#include "AP_Compass_QMC5883.h"
 #if HAL_ENABLE_LIBUAVCAN_DRIVERS
 #include "AP_Compass_UAVCAN.h"
 #endif
@@ -1076,20 +1076,25 @@ void Compass::_probe_external_i2c_compasses(void)
     }
 #endif
 
-#if !defined(HAL_DISABLE_I2C_MAGS_BY_DEFAULT) || defined(HAL_USE_I2C_MAG_QMC5883L)
+#if !defined(HAL_DISABLE_I2C_MAGS_BY_DEFAULT) || defined(HAL_USE_I2C_MAG_QMC5883)
     //external i2c bus
     FOREACH_I2C_EXTERNAL(i) {
-        ADD_BACKEND(DRIVER_QMC5883L, AP_Compass_QMC5883L::probe(GET_I2C_DEVICE(i, HAL_COMPASS_QMC5883L_I2C_ADDR),
-                    true, HAL_COMPASS_QMC5883L_ORIENTATION_EXTERNAL));
+        ADD_BACKEND(DRIVER_QMC5883, AP_Compass_QMC5883::probe(GET_I2C_DEVICE(i, HAL_COMPASS_QMC5883L_I2C_ADDR),
+                    true, HAL_COMPASS_QMC5883_ORIENTATION_EXTERNAL));
+        ADD_BACKEND(DRIVER_QMC5883, AP_Compass_QMC5883::probe(GET_I2C_DEVICE(i, HAL_COMPASS_QMC5883P_I2C_ADDR),
+                    true, HAL_COMPASS_QMC5883_ORIENTATION_EXTERNAL));
     }
 
     // internal i2c bus
     if (all_external) {
-        // only probe QMC5883L on internal if we are treating internals as externals
+        // only probe QMC5883 on internal if we are treating internals as externals
         FOREACH_I2C_INTERNAL(i) {
-            ADD_BACKEND(DRIVER_QMC5883L, AP_Compass_QMC5883L::probe(GET_I2C_DEVICE(i, HAL_COMPASS_QMC5883L_I2C_ADDR),
+            ADD_BACKEND(DRIVER_QMC5883, AP_Compass_QMC5883::probe(GET_I2C_DEVICE(i, HAL_COMPASS_QMC5883L_I2C_ADDR),
                         all_external,
-                        all_external?HAL_COMPASS_QMC5883L_ORIENTATION_EXTERNAL:HAL_COMPASS_QMC5883L_ORIENTATION_INTERNAL));
+                        all_external?HAL_COMPASS_QMC5883_ORIENTATION_EXTERNAL:HAL_COMPASS_QMC5883_ORIENTATION_INTERNAL));
+            ADD_BACKEND(DRIVER_QMC5883, AP_Compass_QMC5883::probe(GET_I2C_DEVICE(i, HAL_COMPASS_QMC5883P_I2C_ADDR),
+                        all_external,
+                        all_external?HAL_COMPASS_QMC5883_ORIENTATION_EXTERNAL:HAL_COMPASS_QMC5883_ORIENTATION_INTERNAL));
         }
     }
 #endif
