@@ -48,13 +48,13 @@ public:
         k_param_can_protocol2,
         k_param_sysid_this_mav,
         k_param_serial_manager,
+        k_param_can_node_stats,
         k_param_gps_mb_only_can_port,
         k_param_scripting,
         k_param_esc_telem_port,
         k_param_can_fdmode,
         k_param_can_fdbaudrate0,
         k_param_can_fdbaudrate1,
-        k_param_can_node_start_count,
     };
 
     AP_Int16 format_version;
@@ -133,9 +133,6 @@ public:
 #else
     static constexpr uint8_t can_fdmode = 0;
 #endif
-
-    AP_Int32 can_node_start_count;
-
     Parameters() {}
 };
 

@@ -85,8 +85,7 @@ const struct LogStructure AP_Periph_FW::log_structure[] = {
 
 void AP_Periph_FW::init()
 {
-    g.can_node_start_count = g.can_node_start_count + 1;
-
+    
     // always run with watchdog enabled. This should have already been
     // setup by the bootloader, but if not then enable now
 #ifndef DISABLE_WATCHDOG
@@ -232,6 +231,8 @@ void AP_Periph_FW::init()
     notify.init();
 #endif
 
+    periph.can_node_stats.init();
+    
 #if AP_SCRIPTING_ENABLED
     scripting.init();
 #endif
@@ -421,6 +422,8 @@ void AP_Periph_FW::update()
 #endif
     }
 
+    can_node_stats.update();
+    
 #if HAL_LOGGING_ENABLED
     logger.periodic_tasks();
 #endif

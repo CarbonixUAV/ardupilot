@@ -45,11 +45,6 @@ extern const AP_HAL::HAL &hal;
 #define MAV_SYSTEM_ID HAL_DEFAULT_MAV_SYSTEM_ID
 #endif
 
-#ifndef CAN_NODE_START_COUNT_DEFAULT
-#define CAN_NODE_START_COUNT_DEFAULT 0
-#endif
-
-
 /*
  *  AP_Periph parameter definitions
  *
@@ -67,7 +62,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @DisplayName: Eeprom format version number
     // @Description: This value is incremented when changes are made to the eeprom format
     // @User: Advanced
-    GSCALAR(format_version, "FORMAT_VERSION", 0),
+    GSCALAR(format_version,         "FORMAT_VERSION", 0),
 
     // @Param: CAN_NODE
     // @DisplayName: UAVCAN node that is used for this network
@@ -75,7 +70,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Range: 0 250
     // @User: Advanced
     // @RebootRequired: True
-    GSCALAR(can_node, "CAN_NODE", HAL_CAN_DEFAULT_NODE_ID),
+    GSCALAR(can_node,         "CAN_NODE", HAL_CAN_DEFAULT_NODE_ID),
 
     // @Param: CAN_BAUDRATE
     // @DisplayName: Bitrate of CAN interface
@@ -83,7 +78,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Range: 10000 1000000
     // @User: Advanced
     // @RebootRequired: True
-    GARRAY(can_baudrate, 0, "CAN_BAUDRATE", 1000000),
+    GARRAY(can_baudrate,     0, "CAN_BAUDRATE", 1000000),
 
 #if HAL_NUM_CAN_IFACES >= 2
     // @Param: CAN_PROTOCOL
@@ -92,15 +87,15 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Values: 0:Disabled,1:UAVCAN,3:ToshibaCAN,4:PiccoloCAN,5:CANTester,6:EFI_NWPMU,7:USD1,8:KDECAN
     // @User: Advanced
     // @RebootRequired: True
-    GARRAY(can_protocol, 0, "CAN_PROTOCOL", AP_CANManager::Driver_Type_UAVCAN),
-
+    GARRAY(can_protocol,     0, "CAN_PROTOCOL", AP_CANManager::Driver_Type_UAVCAN),
+    
     // @Param: CAN2_BAUDRATE
     // @DisplayName: Bitrate of CAN2 interface
     // @Description: Bit rate can be set up to from 10000 to 1000000
     // @Range: 10000 1000000
     // @User: Advanced
     // @RebootRequired: True
-    GARRAY(can_baudrate, 1, "CAN2_BAUDRATE", 1000000),
+    GARRAY(can_baudrate,     1, "CAN2_BAUDRATE", 1000000),
 
     // @Param: CAN2_PROTOCOL
     // @DisplayName: Enable use of specific protocol to be used on this port
@@ -108,7 +103,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Values: 0:Disabled,1:UAVCAN,3:ToshibaCAN,4:PiccoloCAN,5:CANTester,6:EFI_NWPMU,7:USD1,8:KDECAN
     // @User: Advanced
     // @RebootRequired: True
-    GARRAY(can_protocol, 1, "CAN2_PROTOCOL", AP_CANManager::Driver_Type_UAVCAN),
+    GARRAY(can_protocol,     1, "CAN2_PROTOCOL", AP_CANManager::Driver_Type_UAVCAN),
 #endif
 
 #if HAL_NUM_CAN_IFACES >= 3
@@ -118,7 +113,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Range: 10000 1000000
     // @User: Advanced
     // @RebootRequired: True
-    GARRAY(can_baudrate, 2, "CAN3_BAUDRATE", 1000000),
+    GARRAY(can_baudrate,    2, "CAN3_BAUDRATE", 1000000),
 
     // @Param: CAN3_PROTOCOL
     // @DisplayName: Enable use of specific protocol to be used on this port
@@ -126,7 +121,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Values: 0:Disabled,1:UAVCAN,3:ToshibaCAN,4:PiccoloCAN,5:CANTester,6:EFI_NWPMU,7:USD1,8:KDECAN
     // @User: Advanced
     // @RebootRequired: True
-    GARRAY(can_protocol, 2, "CAN3_PROTOCOL", AP_CANManager::Driver_Type_UAVCAN),
+    GARRAY(can_protocol,    2, "CAN3_PROTOCOL", AP_CANManager::Driver_Type_UAVCAN),
 #endif
 
 #if HAL_CANFD_SUPPORTED
@@ -136,7 +131,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Values: 0:Disabled,1:Enabled
     // @User: Advanced
     // @RebootRequired: True
-    GSCALAR(can_fdmode, "CAN_FDMODE", 0),
+    GSCALAR(can_fdmode,     "CAN_FDMODE", 0),
 
     // @Param: CAN_FDBAUDRATE
     // @DisplayName: Set up bitrate for data section on CAN1
@@ -144,7 +139,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Values: 1:1M, 2:2M, 4:4M, 5:5M, 8:8M
     // @User: Advanced
     // @RebootRequired: True
-    GARRAY(can_fdbaudrate, 0, "CAN_FDBAUDRATE", HAL_CANFD_SUPPORTED),
+    GARRAY(can_fdbaudrate,    0, "CAN_FDBAUDRATE", HAL_CANFD_SUPPORTED),
 
 #if HAL_NUM_CAN_IFACES >= 2
     // @Param: CAN2_FDBAUDRATE
@@ -153,7 +148,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Values: 1:1M, 2:2M, 4:4M, 5:5M, 8:8M
     // @User: Advanced
     // @RebootRequired: True
-    GARRAY(can_fdbaudrate, 1, "CAN2_FDBAUDRATE", HAL_CANFD_SUPPORTED),
+    GARRAY(can_fdbaudrate,    1, "CAN2_FDBAUDRATE", HAL_CANFD_SUPPORTED),
 #endif
 #endif
 
@@ -163,7 +158,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Description: DANGER! When enabled, the App will perform a bootloader update by copying the embedded bootloader over the existing bootloader. This may take a few seconds to perform and should only be done if you know what you're doing.
     // @Range: 0 1
     // @User: Advanced
-    GSCALAR(flash_bootloader, "FLASH_BOOTLOADER", 0),
+    GSCALAR(flash_bootloader,     "FLASH_BOOTLOADER", 0),
 #endif
 
     // @Param: DEBUG
@@ -172,6 +167,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Bitmask: 0:Disabled, 1:Show free stack space, 2:Auto Reboot after 15sec
     // @User: Advanced
     GSCALAR(debug, "DEBUG", 0),
+
 
     // @Param: BRD_SERIAL_NUM
     // @DisplayName: Serial number of device
@@ -188,7 +184,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Units: %
     // @Increment: 1
     // @User: Advanced
-    GSCALAR(buzz_volume, "BUZZER_VOLUME", 100),
+    GSCALAR(buzz_volume,     "BUZZER_VOLUME", 100),
 #endif
 
 #ifdef HAL_PERIPH_ENABLE_GPS
@@ -226,7 +222,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
 #ifdef HAL_PERIPH_ENABLE_MAG
     // @Group: COMPASS_
     // @Path: ../libraries/AP_Compass/AP_Compass.cpp
-    GOBJECT(compass, "COMPASS_", Compass),
+    GOBJECT(compass,         "COMPASS_",     Compass),
 #endif
 
 #ifdef HAL_PERIPH_ENABLE_BARO
@@ -336,7 +332,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // Servo driver
     // @Group: OUT
     // @Path: ../libraries/SRV_Channel/SRV_Channels.cpp
-    GOBJECT(servo_channels, "OUT", SRV_Channels),
+    GOBJECT(servo_channels, "OUT",     SRV_Channels),
 
     // @Param: ESC_PWM_TYPE
     // @DisplayName: Output PWM type
@@ -344,7 +340,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Values: 1:Normal,2:OneShot,3:OneShot125,4:Brushed,5:DShot150,6:DShot300,7:DShot600,8:DShot1200
     // @User: Advanced
     // @RebootRequired: True
-    GSCALAR(esc_pwm_type, "ESC_PWM_TYPE", 0),
+    GSCALAR(esc_pwm_type, "ESC_PWM_TYPE",     0),
 
 #if HAL_WITH_ESC_TELEM && !HAL_GCS_ENABLED
     // @Param: ESC_TELEM_PORT
@@ -372,20 +368,20 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
 #ifdef HAL_PERIPH_ENABLE_NOTIFY
     // @Group: NTF_
     // @Path: ../libraries/AP_Notify/AP_Notify.cpp
-    GOBJECT(notify, "NTF_", AP_Notify),
+    GOBJECT(notify, "NTF_",  AP_Notify),
 #endif
 
 #if HAL_LOGGING_ENABLED
     // @Group: LOG
     // @Path: ../libraries/AP_Logger/AP_Logger.cpp
-    GOBJECT(logger, "LOG", AP_Logger),
+    GOBJECT(logger,           "LOG",  AP_Logger),
 
     // @Param: LOG_BITMASK
     // @DisplayName: Log bitmask
     // @Description: 4 byte bitmap of log types to enable
     // @Bitmask: 2:GPS
     // @User: Standard
-    GSCALAR(log_bitmask, "LOG_BITMASK", 4),
+    GSCALAR(log_bitmask,    "LOG_BITMASK",          4),
 #endif
 
 #if HAL_GCS_ENABLED
@@ -394,12 +390,16 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Description: Allows setting an individual system id for this vehicle to distinguish it from others on the same network
     // @Range: 1 255
     // @User: Advanced
-    GSCALAR(sysid_this_mav, "SYSID_THISMAV", MAV_SYSTEM_ID),
+    GSCALAR(sysid_this_mav,         "SYSID_THISMAV",  MAV_SYSTEM_ID),
 
     // @Group: SERIAL
     // @Path: ../libraries/AP_SerialManager/AP_SerialManager.cpp
-    GOBJECT(serial_manager, "SERIAL", AP_SerialManager),
+    GOBJECT(serial_manager, "SERIAL",   AP_SerialManager),
 #endif
+
+    // @Group: SERIAL
+    // @Path: ../libraries/AP_SerialManager/AP_SerialManager.cpp
+    GOBJECT(can_node_stats, "CAN_NODE", AP_Can_node_stats),
 
 #if AP_SCRIPTING_ENABLED
     // @Group: SCR_
@@ -407,14 +407,8 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     GOBJECT(scripting, "SCR_", AP_Scripting),
 #endif
 
-    // @Param: can_node_start_count
-    // @DisplayName: CAN node start count
-    // @Description: Increments each time CAN node starts. Helps to identify if there was a reset during current operation
-    // @Range: 0 to 4294967295
-    // @User: Advanced
-    GSCALAR(can_node_start_count, "CAN_NODE_START_COUNT", CAN_NODE_START_COUNT_DEFAULT),
-
-    AP_VAREND};
+    AP_VAREND
+};
 
 
 void AP_Periph_FW::load_parameters(void)
