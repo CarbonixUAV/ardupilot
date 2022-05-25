@@ -9,10 +9,8 @@ class AP_Can_node_stats {
     public:
     AP_Can_node_stats();
 
-    uint32_t flttime; // seconds in flight (or driving)
     uint32_t runtime; // total wallclock time spent running ArduPilot (seconds)
     uint32_t reset;   // last time AP_Stats parameters were reset (in seconds since AP_Stats Jan 1st 2016)
-    uint32_t flttime_boot; // seconds in flight (or driving), at boot
     
     void init();
 
@@ -30,10 +28,6 @@ class AP_Can_node_stats {
         return _flying_ms != 0;
     }
 
-    // accessor for flighttime. Returns 0 if not flying, otherwise
-    // total time flying since boot in seconds
-    uint32_t get_flight_time_s(void);
-
     // get singleton
     static AP_Can_node_stats *get_singleton(void) {
         return _singleton;
@@ -46,7 +40,6 @@ private:
 
     struct {
         AP_Int16 bootcount;
-        AP_Int32 flttime;
         AP_Int32 runtime;
         AP_Int32 reset;
     } params;
@@ -59,7 +52,6 @@ private:
     uint64_t _flying_ms;
     uint64_t _last_runtime_ms;
 
-    void update_flighttime();
     void update_runtime();
 
     HAL_Semaphore sem;

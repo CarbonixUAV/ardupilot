@@ -12,14 +12,6 @@ const AP_Param::GroupInfo AP_Can_node_stats::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("_BOOTCNT",    0, AP_Can_node_stats, params.bootcount, 0),
 
-    // @Param: _FLTTIME
-    // @DisplayName: Total FlightTime
-    // @Description: Total FlightTime (seconds)
-    // @Units: s
-    // @ReadOnly: True
-    // @User: Standard
-    AP_GROUPINFO("_FLTTIME",    1, AP_Can_node_stats, params.flttime, 0),
-
     // @Param: _RUNTIME
     // @DisplayName: Total RunTime
     // @Description: Total time autopilot has run
@@ -49,10 +41,8 @@ AP_Can_node_stats::AP_Can_node_stats(void)
 
 void AP_Can_node_stats::copy_variables_from_parameters()
 {
-    flttime = params.flttime;
     runtime = params.runtime;
     reset = params.reset;
-    flttime_boot = flttime;
 }
 
 void AP_Can_node_stats::init()
@@ -66,19 +56,7 @@ void AP_Can_node_stats::init()
 
 void AP_Can_node_stats::flush()
 {
-    params.flttime.set_and_save_ifchanged(flttime);
     params.runtime.set_and_save_ifchanged(runtime);
-}
-
-void AP_Can_node_stats::update_flighttime()
-{
-    if (_flying_ms) {
-        WITH_SEMAPHORE(sem);
-        const uint32_t now = AP_HAL::millis();
-        const uint32_t delta = (now - _flying_ms)/1000;
-        flttime += delta;
-        _flying_ms += delta*1000;
-    }
 }
 
 void AP_Can_node_stats::update_runtime()
@@ -102,7 +80,6 @@ void AP_Can_node_stats::update()
     const uint32_t params_reset = params.reset;
     if (params_reset != reset || params_reset == 0) {
         params.bootcount.set_and_save_ifchanged(params_reset == 0 ? 1 : 0);
-        params.flttime.set_and_save_ifchanged(0);
         params.runtime.set_and_save_ifchanged(0);
         uint32_t system_clock = 0; // in seconds
         uint64_t rtc_clock_us;
@@ -128,15 +105,6 @@ void AP_Can_node_stats::set_flying(const bool is_flying)
         update_flighttime();
         _flying_ms = 0;
     }
-}
-
-/*
-  get time in flight since boot
- */
-uint32_t AP_Can_node_stats::get_flight_time_s(void)
-{
-    update_flighttime();
-    return flttime - flttime_boot;
 }
 
 AP_Can_node_stats *AP::Can_node_stats(void)
