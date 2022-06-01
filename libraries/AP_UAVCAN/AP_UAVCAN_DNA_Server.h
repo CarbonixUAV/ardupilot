@@ -38,6 +38,7 @@ class AP_UAVCAN_DNA_Server
     Bitmask<128> verified_mask;
     Bitmask<128> node_seen_mask;
     Bitmask<128> logged;
+    Bitmask<128> logged_CANH;
 
     uint8_t last_logging_count;
 
@@ -123,6 +124,9 @@ public:
 
     //Run through the list of seen node ids for verification
     void verify_nodes(AP_UAVCAN *ap_uavcan);
+
+    // Log NodeInfo
+    void log_NodeStatus(uint8_t node_id, uint32_t uptime_sec, uint8_t healthy, uint8_t mode);
 };
 
 namespace AP

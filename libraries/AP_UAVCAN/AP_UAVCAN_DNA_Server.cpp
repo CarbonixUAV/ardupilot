@@ -168,6 +168,9 @@ void AP_UAVCAN_DNA_Server::setVerificationMask(uint8_t node_id)
     if (node_id > MAX_NODE_ID) {
         return;
     }
+    if(!verified_mask.get(node_id)){
+        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "CAN %d Online" , node_id);
+    }
     verified_mask.set(node_id);
 }
 
@@ -428,7 +431,7 @@ void AP_UAVCAN_DNA_Server::verify_nodes(AP_UAVCAN *ap_uavcan)
     WITH_SEMAPHORE(sem);
 
     uint32_t now = uavcan::SystemClock::instance().getMonotonic().toMSec();
-    if ((now - last_verification_request) < 5000) {
+    if ((now - last_verification_request) < 1000) {
         return;
     }
 
@@ -455,6 +458,9 @@ void AP_UAVCAN_DNA_Server::verify_nodes(AP_UAVCAN *ap_uavcan)
         if (isNodeIDVerified(curr_verifying_node)) {
             // remove verification flag for this node
             verified_mask.clear(curr_verifying_node);
+            GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "CAN %d Offline" , curr_verifying_node);
+            // HEALTH_CRITICAL isnt correct would prefer HEALTH_UKNOWN or put _last_known_health_status // UAVCAN_NODE_HEALTH_CRITICAL
+            log_NodeStatus(curr_verifying_node, 0, 0, UAVCAN_NODE_MODE_OFFLINE);  // UAVCAN_NODE_MODE_OFFLINE
         }
     }
 
@@ -484,6 +490,8 @@ void AP_UAVCAN_DNA_Server::handleNodeStatus(uint8_t node_id, const NodeStatusCb 
         return;
     }
     WITH_SEMAPHORE(sem);
+    // not using cb.msg->health as visual representation is not correct.
+    log_NodeStatus(node_id, cb.msg->uptime_sec, 1, cb.msg->mode);
     if (!isNodeIDVerified(node_id)) {
         //immediately begin verification of the node_id
         for (uint8_t i = 0; i < HAL_MAX_CAN_PROTOCOL_DRIVERS; i++) {
@@ -578,6 +586,30 @@ void AP_UAVCAN_DNA_Server::handleNodeInfo(uint8_t node_id, uint8_t unique_id[], 
             nodeInfo_resp_rcvd = true;
         }
     }
+}
+
+void AP_UAVCAN_DNA_Server::log_NodeStatus(uint8_t node_id, uint32_t uptime_sec, uint8_t healthy, uint8_t mode)
+{
+    if (node_id > MAX_NODE_ID) {
+        return;
+    }
+    /*
+      if we haven't logged this node then log it now
+     */
+    if (!logged_CANH.get(node_id) && AP::logger().logging_started()) {
+        logged_CANH.set(node_id);
+    }
+    // @LoggerMessage: CANH
+    // @Description: CAN Health Status
+    // @Field: TimeUS: Time since system startup
+    // @Field: NodeId: Node ID
+    // @Field: Healthy
+    AP::logger().Write("CANH",
+            "TimeUS," "NodeID," "Healthy", // labels
+            "s"           "#"     "-"    , // units
+            "F"           "-"     "-"    , // multipliers
+            "Q"           "B"     "B"    , // types
+            AP_HAL::micros64(), node_id, healthy);
 }
 
 //Trampoline call for handleNodeInfo member call
