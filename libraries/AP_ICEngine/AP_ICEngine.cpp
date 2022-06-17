@@ -19,7 +19,10 @@
 #include <AP_AHRS/AP_AHRS.h>
 #include <AP_Scheduler/AP_Scheduler.h>
 #include <AP_Notify/AP_Notify.h>
+#include <RC_Channel/RC_Channel.h>
+#include <Filter/LowPassFilter.h>
 #include "AP_ICEngine.h"
+#include <AP_RPM/AP_RPM.h>
 
 extern const AP_HAL::HAL& hal;
 
@@ -132,7 +135,7 @@ const AP_Param::GroupInfo AP_ICEngine::var_info[] = {
     // @Param: OPTIONS
     // @DisplayName: ICE options
     // @Description: Options for ICE control
-    // @Bitmask: 0:DisableIgnitionRCFailsafe
+    // @Bitmask: 0:DisableIgnitionRCFailsafe,1:DisableRedlineRPMGovernor
     AP_GROUPINFO("OPTIONS", 15, AP_ICEngine, options, 0),
 
     // @Param: STARTCHN_MIN
@@ -142,15 +145,17 @@ const AP_Param::GroupInfo AP_ICEngine::var_info[] = {
     // @Range: 0 1300
     AP_GROUPINFO("STARTCHN_MIN", 16, AP_ICEngine, start_chan_min_pwm, 0),
 
+    // @Param: REDLINE_RPM
+    // @DisplayName: RPM of the redline limit for the engine
+    // @Description: Maximum RPM for the engine provided by the manufacturer. A value of 0 disables this feature. See ICE_OPTIONS to enable or disable the governor.
+    // @User: Advanced
+    // @Range: 0 2000000
+    // @Units: RPM
+    AP_GROUPINFO("REDLINE_RPM", 17, AP_ICEngine, redline_rpm, 0),
+
     AP_GROUPEND
 };
 
-#define TCA9554_I2C_BUS      1
-#define TCA9554_I2C_ADDR     0x20
-#define TCA9554_OUTPUT       0x01  // Output Port register address. Outgoing logic levels
-#define TCA9554_OUT_DEFAULT  0x30  // 0011 0000
-#define TCA9554_CONF         0x03  // Configuration Port register address [0 = Output]
-#define TCA9554_PINS         0xC0  // Set all used ports to outputs = 1100 0000
 
 // constructor
 AP_ICEngine::AP_ICEngine(const AP_RPM &_rpm) :
@@ -162,6 +167,8 @@ AP_ICEngine::AP_ICEngine(const AP_RPM &_rpm) :
         AP_HAL::panic("AP_ICEngine must be singleton");
     }
     _singleton = this;
+
+    _rpm_filter.set_cutoff_frequency(1 / AP::scheduler().get_loop_period_s(), 0.5f);
 }
 
 /*
@@ -172,15 +179,6 @@ void AP_ICEngine::update(void)
     if (!enable) {
         return;
     }
-
-    //*
-    if (i2c_state == I2C_UNINITIALIZED) {
-        i2c_state = I2C_FAILED;
-        if (TCA9554_init()) {
-            i2c_state = I2C_SUCCESS;
-        }
-    }
-    //*/
 
     uint16_t cvalue = 1500;
     RC_Channel *c = rc().channel(start_chan-1);
@@ -231,6 +229,8 @@ void AP_ICEngine::update(void)
         should_run = false;
     }
 
+    float rpm_value;
+
     // switch on current state to work out new state
     switch (state) {
     case ICE_OFF:
@@ -279,7 +279,6 @@ void AP_ICEngine::update(void)
             gcs().send_text(MAV_SEVERITY_INFO, "Stopped engine");
         } else if (rpm_instance > 0) {
             // check RPM to see if still running
-            float rpm_value;
             if (!rpm.get_rpm(rpm_instance-1, rpm_value) ||
                 rpm_value < rpm_threshold) {
                 // engine has stopped when it should be running
@@ -303,37 +302,42 @@ void AP_ICEngine::update(void)
         }
     }
 
+    // check against redline RPM
+    if (rpm_instance > 0 && redline_rpm > 0 && rpm.get_rpm(rpm_instance-1, rpm_value)) {
+        // update the filtered RPM value
+        filtered_rpm_value =  _rpm_filter.apply(rpm_value);
+        if (!redline.flag && filtered_rpm_value > redline_rpm) {
+            // redline governor is off. rpm is too high. enable the governor
+            gcs().send_text(MAV_SEVERITY_INFO, "Engine: Above redline RPM");
+            redline.flag = true;
+        } else if (redline.flag && filtered_rpm_value < redline_rpm * 0.9f) {
+            // redline governor is on. rpm is safely below. disable the governor
+            redline.flag = false;
+            // reset redline governor
+            redline.throttle_percentage = 0.0f;
+            redline.governor_integrator = 0.0f;
+        }
+    } else {
+        redline.flag = false;
+    }
+
     /* now set output channels */
     switch (state) {
     case ICE_OFF:
-        control_ign_str(IGN_OFF_STR_OFF);
-
-        //SRV_Channels::set_output_pwm(SRV_Channel::k_ignition, pwm_ignition_off);
-        //SRV_Channels::set_output_pwm(SRV_Channel::k_starter,  pwm_starter_off);
+        SRV_Channels::set_output_pwm(SRV_Channel::k_ignition, pwm_ignition_off);
+        SRV_Channels::set_output_pwm(SRV_Channel::k_starter,  pwm_starter_off);
         starter_start_time_ms = 0;
         break;
 
     case ICE_START_HEIGHT_DELAY:
     case ICE_START_DELAY:
-        control_ign_str(IGN_ON_STR_OFF);
-
-        //SRV_Channels::set_output_pwm(SRV_Channel::k_ignition, pwm_ignition_on);
-        //SRV_Channels::set_output_pwm(SRV_Channel::k_starter,  pwm_starter_off);
+        SRV_Channels::set_output_pwm(SRV_Channel::k_ignition, pwm_ignition_on);
+        SRV_Channels::set_output_pwm(SRV_Channel::k_starter,  pwm_starter_off);
         break;
 
     case ICE_STARTING:
-        //SRV_Channels::set_output_pwm(SRV_Channel::k_ignition, pwm_ignition_on);
-        //SRV_Channels::set_output_pwm(SRV_Channel::k_starter,  pwm_starter_on);
-
-        // do not allow starting when aircraft disarmed
-        
-        ///*
-        if (!hal.util->get_soft_armed()) {
-            control_ign_str(IGN_ON_STR_OFF);
-        } else {
-            control_ign_str(IGN_ON_STR_ON_DIR_ON);
-        }
-        //*/
+        SRV_Channels::set_output_pwm(SRV_Channel::k_ignition, pwm_ignition_on);
+        SRV_Channels::set_output_pwm(SRV_Channel::k_starter,  pwm_starter_on);
         if (starter_start_time_ms == 0) {
             starter_start_time_ms = now;
         }
@@ -341,32 +345,19 @@ void AP_ICEngine::update(void)
         break;
 
     case ICE_RUNNING:
-        control_ign_str(IGN_ON_STR_OFF);
-
-        //SRV_Channels::set_output_pwm(SRV_Channel::k_ignition, pwm_ignition_on);
-        //SRV_Channels::set_output_pwm(SRV_Channel::k_starter,  pwm_starter_off);
+        SRV_Channels::set_output_pwm(SRV_Channel::k_ignition, pwm_ignition_on);
+        SRV_Channels::set_output_pwm(SRV_Channel::k_starter,  pwm_starter_off);
         starter_start_time_ms = 0;
         break;
     }
 }
 
-void AP_ICEngine::control_ign_str(TCA9554_state_t value)
-{
-    if (i2c_state == I2C_SUCCESS)
-    {
-        TCA9554_set(value);
-    }
-    else
-    {
-    	//Leave for now
-    }
-}
 
 /*
   check for throttle override. This allows the ICE controller to force
   the correct starting throttle when starting the engine and maintain idle when disarmed
  */
-bool AP_ICEngine::throttle_override(uint8_t &percentage)
+bool AP_ICEngine::throttle_override(float &percentage)
 {
     if (!enable) {
         return false;
@@ -375,14 +366,38 @@ bool AP_ICEngine::throttle_override(uint8_t &percentage)
     if (state == ICE_RUNNING &&
         idle_percent > 0 &&
         idle_percent < 100 &&
-        (int16_t)idle_percent > SRV_Channels::get_output_scaled(SRV_Channel::k_throttle))
+        idle_percent > percentage)
     {
-        percentage = (uint8_t)idle_percent;
+        percentage = idle_percent;
         return true;
     }
 
     if (state == ICE_STARTING || state == ICE_START_DELAY) {
-        percentage = (uint8_t)start_percent.get();
+        percentage = start_percent.get();
+        return true;
+    }
+
+    if (redline.flag && !(options & uint16_t(Options::DISABLE_REDLINE_GOVERNOR))) {
+        // limit the throttle from increasing above what the current output is
+        if (redline.throttle_percentage < 1.0f) {
+            redline.throttle_percentage = percentage;
+        }
+        if (percentage < redline.throttle_percentage - redline.governor_integrator) {
+            // the throttle before the override is much lower than what the integrator is at
+            // reset the integrator
+            redline.governor_integrator = 0;
+            redline.throttle_percentage = percentage;
+        } else if (percentage < redline.throttle_percentage) {
+            // the throttle is below the integrator set point
+            // remove the difference from the integrator
+            redline.governor_integrator -= redline.throttle_percentage - percentage;
+            redline.throttle_percentage = percentage;
+        } else if (filtered_rpm_value > redline_rpm) {
+            // reduce the throttle if still over the redline RPM
+            const float redline_setpoint_step = idle_slew * AP::scheduler().get_loop_period_s();
+            redline.governor_integrator += redline_setpoint_step;
+        }
+        percentage = redline.throttle_percentage - redline.governor_integrator;
         return true;
     }
     return false;
@@ -489,46 +504,6 @@ void AP_ICEngine::update_idle_governor(int8_t &min_throttle)
     idle_governor_integrator = constrain_float(idle_governor_integrator, min_throttle_base, 40.0f);
 
     min_throttle = roundf(idle_governor_integrator);
-}
-
-bool AP_ICEngine::TCA9554_init()
-{
-    dev_TCA9554 = std::move(hal.i2c_mgr->get_device(TCA9554_I2C_BUS, TCA9554_I2C_ADDR));
-    if (!dev_TCA9554) {
-        return false;
-    }
-    WITH_SEMAPHORE(dev_TCA9554->get_semaphore());
-
-    dev_TCA9554->set_retries(10);
-
-    // set outputs
-    bool ret = dev_TCA9554->write_register(TCA9554_OUTPUT, TCA9554_OUT_DEFAULT);
-    if (!ret) {
-        return false;
-    }
-    ret = dev_TCA9554->write_register(TCA9554_CONF, TCA9554_PINS);
-    if (!ret) {
-        return false;
-    }
-    TCA9554_set(IGN_OFF_STR_OFF);
-    dev_TCA9554->set_retries(1);
-    return true;
-}
-
-
-void AP_ICEngine::TCA9554_set(TCA9554_state_t value)
-{
-    if (value != TCA9554_state) {
-        TCA9554_state = value;
-        WITH_SEMAPHORE(dev_TCA9554->get_semaphore());
-        // set outputs and status leds
-        //dev_TCA9554->write_register(TCA9554_OUTPUT, (~(value<<2) & 0x0C) | value);
-        dev_TCA9554->write_register(TCA9554_OUTPUT, (~(value<<2) & 0x0C) | value);
-        //0011 0010
-        //1100 1000 & 0000 1100
-        //0000 1000 OR 0011 0010
-        //0011 1010
-    }
 }
 
 
