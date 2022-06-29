@@ -20,6 +20,7 @@
 #include "AP_EFI_Serial_MS.h"
 #include "AP_EFI_Serial_Lutan.h"
 #include "AP_EFI_NWPMU.h"
+#include "AP_EFI_Serial_Hirth.h"
 #include "AP_EFI_DroneCAN.h"
 #include <AP_Logger/AP_Logger.h>
 
@@ -85,6 +86,9 @@ void AP_EFI::init(void)
 #if HAL_EFI_NWPWU_ENABLED
         backend = new AP_EFI_NWPMU(*this);
 #endif
+        break;
+    case Type::Hirth:
+        backend = new AP_EFI_Serial_Hirth(*this);
         break;
     case Type::DroneCAN:
 #if HAL_EFI_DRONECAN_ENABLED
