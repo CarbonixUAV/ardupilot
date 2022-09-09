@@ -38,10 +38,12 @@ AP_Periph_FW periph;
 void setup();
 void loop();
 
-const AP_HAL::HAL& hal = AP_HAL::get_HAL();
+const AP_HAL::HAL &hal = AP_HAL::get_HAL();
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
-void stm32_watchdog_init() {}
+void stm32_watchdog_init()
+{
+}
 void stm32_watchdog_pat() {}
 #endif
 
@@ -71,7 +73,8 @@ AP_Periph_FW::AP_Periph_FW()
     : logger(g.log_bitmask)
 #endif
 {
-    if (_singleton != nullptr) {
+    if (_singleton != nullptr)
+    {
         AP_HAL::panic("AP_Periph_FW must be singleton");
     }
     _singleton = this;
@@ -85,7 +88,7 @@ const struct LogStructure AP_Periph_FW::log_structure[] = {
 
 void AP_Periph_FW::init()
 {
-    
+
     // always run with watchdog enabled. This should have already been
     // setup by the bootloader, but if not then enable now
 #ifndef DISABLE_WATCHDOG
@@ -94,38 +97,13 @@ void AP_Periph_FW::init()
 
     stm32_watchdog_pat();
 
-#if !HAL_GCS_ENABLED
-    hal.serial(0)->begin(AP_SERIALMANAGER_CONSOLE_BAUD, 32, 32);
-#endif
-    hal.serial(3)->begin(115200, 128, 256);
-
     load_parameters();
 
     stm32_watchdog_pat();
 
     can_start();
 
-#if HAL_GCS_ENABLED
     stm32_watchdog_pat();
-    gcs().init();
-#endif
-    serial_manager.init();
-
-#if HAL_GCS_ENABLED
-    gcs().setup_console();
-    gcs().setup_uarts();
-    gcs().send_text(MAV_SEVERITY_INFO, "AP_Periph GCS Initialised!");
-#endif
-
-    stm32_watchdog_pat();
-
-#ifdef HAL_BOARD_AP_PERIPH_ZUBAXGNSS
-    // setup remapping register for ZubaxGNSS
-    uint32_t mapr = AFIO->MAPR;
-    mapr &= ~AFIO_MAPR_SWJ_CFG;
-    mapr |= AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
-    AFIO->MAPR = mapr | AFIO_MAPR_CAN_REMAP_REMAP2 | AFIO_MAPR_SPI3_REMAP;
-#endif
 
 #if HAL_LOGGING_ENABLED
     logger.Init(log_structure, ARRAY_SIZE(log_structure));
@@ -138,95 +116,48 @@ void AP_Periph_FW::init()
            app_descriptor.image_size,
            app_descriptor.git_hash);
 
-    if (hal.util->was_watchdog_reset()) {
+    if (hal.util->was_watchdog_reset())
+    {
         printf("Reboot after watchdog reset\n");
     }
 
-#ifdef HAL_PERIPH_ENABLE_GPS
-    if (gps.get_type(0) != AP_GPS::GPS_Type::GPS_TYPE_NONE && g.gps_port >= 0) {
-        serial_manager.set_protocol_and_baud(g.gps_port, AP_SerialManager::SerialProtocol_GPS, AP_SERIALMANAGER_GPS_BAUD);
-#if HAL_LOGGING_ENABLED
-        #define MASK_LOG_GPS (1<<2)
-        gps.set_log_gps_bit(MASK_LOG_GPS);
-#endif
-        gps.init(serial_manager);
-    }
-#endif
+/* For testing CPN boards. Initialize all components here */
+#if CPN_QUALIFICATION_ENABLE == 1
+    can_printf("CPN Qualification test");
 
-#ifdef HAL_PERIPH_ENABLE_MAG
-    compass.init();
-#endif
+    // adc1 = hal.analogin->channel(10);
+    // adc2 = hal.analogin->channel(11);
 
-#ifdef HAL_PERIPH_ENABLE_BARO
+    // adc1 = hal.analogin->channel(1);
+    // adc2 = hal.analogin->channel(2);
+    // adc3 = hal.analogin->channel(3);
+    // adc4 = hal.analogin->channel(4);
+    adc5 = hal.analogin->channel(5);
+    adc6 = hal.analogin->channel(6);
+    // adc7 = hal.analogin->channel(7);
+    adc8 = hal.analogin->channel(8);
+    adc9 = hal.analogin->channel(9);
+    // adc10 = hal.analogin->channel(10);
+    // adc11 = hal.analogin->channel(11);
+    // adc12 = hal.analogin->channel(12);
+    // adc13 = hal.analogin->channel(13);
+    // adc14 = hal.analogin->channel(14);
+    // adc15 = hal.analogin->channel(15);
+    // adc16 = hal.analogin->channel(16);
+
+    hal.serial(0)->begin(9600);
+    hal.serial(1)->begin(9600);
+    hal.serial(2)->begin(9600);
+    hal.serial(3)->begin(9600);
+    hal.serial(4)->begin(9600);
+
     baro.init();
+
+    compass.init();
+
+    // gps.init();
 #endif
 
-#ifdef HAL_PERIPH_ENABLE_BATTERY
-    battery.lib.init();
-#endif
-
-#if defined(HAL_PERIPH_NEOPIXEL_COUNT_WITHOUT_NOTIFY) || defined(HAL_PERIPH_ENABLE_RC_OUT)
-    hal.rcout->init();
-#endif
-
-#ifdef HAL_PERIPH_NEOPIXEL_CHAN_WITHOUT_NOTIFY
-    hal.rcout->set_serial_led_num_LEDs(HAL_PERIPH_NEOPIXEL_CHAN_WITHOUT_NOTIFY, HAL_PERIPH_NEOPIXEL_COUNT_WITHOUT_NOTIFY, AP_HAL::RCOutput::MODE_NEOPIXEL);
-#endif
-
-#ifdef HAL_PERIPH_ENABLE_RC_OUT
-    rcout_init();
-#endif
-
-#ifdef HAL_PERIPH_ENABLE_ADSB
-    adsb_init();
-#endif
-
-#ifdef HAL_PERIPH_ENABLE_AIRSPEED
-    if (airspeed.enabled()){
-#if CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS
-        const bool pins_enabled = ChibiOS::I2CBus::check_select_pins(0x01);
-        if (pins_enabled) {
-            ChibiOS::I2CBus::set_bus_to_floating(0);
-#ifdef HAL_GPIO_PIN_LED_CAN_I2C
-            palWriteLine(HAL_GPIO_PIN_LED_CAN_I2C, 1);
-#endif
-        } else {
-            // Note: logging of ARSPD is not enabled currently. To enable, call airspeed.set_log_bit(); here
-            airspeed.init();
-        }
-#else
-        // Note: logging of ARSPD is not enabled currently. To enable, call airspeed.set_log_bit(); here
-        airspeed.init();
-#endif
-    }
-
-#endif
-
-#ifdef HAL_PERIPH_ENABLE_RANGEFINDER
-    if (rangefinder.get_type(0) != RangeFinder::Type::NONE && g.rangefinder_port >= 0) {
-        auto *uart = hal.serial(g.rangefinder_port);
-        if (uart != nullptr) {
-            uart->begin(g.rangefinder_baud);
-            serial_manager.set_protocol_and_baud(g.rangefinder_port, AP_SerialManager::SerialProtocol_Rangefinder, g.rangefinder_baud);
-            rangefinder.init(ROTATION_NONE);
-        }
-    }
-#endif
-
-#ifdef HAL_PERIPH_ENABLE_PWM_HARDPOINT
-    pwm_hardpoint_init();
-#endif
-
-#ifdef HAL_PERIPH_ENABLE_HWESC
-    hwesc_telem.init(hal.serial(3));
-#endif
-
-#ifdef HAL_PERIPH_ENABLE_MSP
-    if (g.msp_port >= 0) {
-        msp_init(hal.serial(g.msp_port));
-    }
-#endif
-    
 #ifdef HAL_PERIPH_ENABLE_NOTIFY
     notify.init();
 #endif
@@ -244,18 +175,21 @@ void AP_Periph_FW::init()
 void AP_Periph_FW::update_rainbow()
 {
 #ifdef HAL_PERIPH_ENABLE_NOTIFY
-    if (notify.get_led_len() != 8) {
+    if (notify.get_led_len() != 8)
+    {
         return;
     }
 #endif
     static bool rainbow_done;
-    if (rainbow_done) {
+    if (rainbow_done)
+    {
         return;
     }
     uint32_t now = AP_HAL::native_millis();
-    if (now - start_ms > 1500) {
+    if (now - start_ms > 1500)
+    {
         rainbow_done = true;
-#if defined (HAL_PERIPH_ENABLE_NOTIFY)
+#if defined(HAL_PERIPH_ENABLE_NOTIFY)
         periph.notify.handle_rgb(0, 0, 0);
 #elif defined(HAL_PERIPH_NEOPIXEL_CHAN_WITHOUT_NOTIFY)
         hal.rcout->set_serial_led_rgb_data(HAL_PERIPH_NEOPIXEL_CHAN_WITHOUT_NOTIFY, -1, 0, 0, 0);
@@ -265,37 +199,40 @@ void AP_Periph_FW::update_rainbow()
     }
     static uint32_t last_update_ms;
     const uint8_t step_ms = 30;
-    if (now - last_update_ms < step_ms) {
+    if (now - last_update_ms < step_ms)
+    {
         return;
     }
-    const struct {
+    const struct
+    {
         uint8_t red;
         uint8_t green;
         uint8_t blue;
     } rgb_rainbow[] = {
-        { 255, 0, 0 },
-        { 255, 127, 0 },
-        { 255, 255, 0 },
-        { 0,   255, 0 },
-        { 0,   0,   255 },
-        { 75,  0,   130 },
-        { 143, 0,   255 },
-        { 0,   0,   0 },
+        {255, 0, 0},
+        {255, 127, 0},
+        {255, 255, 0},
+        {0, 255, 0},
+        {0, 0, 255},
+        {75, 0, 130},
+        {143, 0, 255},
+        {0, 0, 0},
     };
     last_update_ms = now;
     static uint8_t step;
     const uint8_t nsteps = ARRAY_SIZE(rgb_rainbow);
     float brightness = 0.3;
-    for (uint8_t n=0; n<8; n++) {
+    for (uint8_t n = 0; n < 8; n++)
+    {
         uint8_t i = (step + n) % nsteps;
-#if defined (HAL_PERIPH_ENABLE_NOTIFY)
+#if defined(HAL_PERIPH_ENABLE_NOTIFY)
         periph.notify.handle_rgb(
 #elif defined(HAL_PERIPH_NEOPIXEL_CHAN_WITHOUT_NOTIFY)
         hal.rcout->set_serial_led_rgb_data(HAL_PERIPH_NEOPIXEL_CHAN_WITHOUT_NOTIFY, n,
 #endif
-                                        rgb_rainbow[i].red*brightness,
-                                        rgb_rainbow[i].green*brightness,
-                                        rgb_rainbow[i].blue*brightness);
+            rgb_rainbow[i].red * brightness,
+            rgb_rainbow[i].green * brightness,
+            rgb_rainbow[i].blue * brightness);
     }
     step++;
 
@@ -305,19 +242,22 @@ void AP_Periph_FW::update_rainbow()
 }
 #endif // HAL_PERIPH_ENABLE_NOTIFY
 
-
 #if CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS && CH_DBG_ENABLE_STACK_CHECK == TRUE
 void AP_Periph_FW::show_stack_free()
 {
     const uint32_t isr_stack_size = uint32_t((const uint8_t *)&__main_stack_end__ - (const uint8_t *)&__main_stack_base__);
     can_printf("ISR %u/%u", unsigned(stack_free(&__main_stack_base__)), unsigned(isr_stack_size));
 
-    for (thread_t *tp = chRegFirstThread(); tp; tp = chRegNextThread(tp)) {
+    for (thread_t *tp = chRegFirstThread(); tp; tp = chRegNextThread(tp))
+    {
         uint32_t total_stack;
-        if (tp->wabase == (void*)&__main_thread_stack_base__) {
+        if (tp->wabase == (void *)&__main_thread_stack_base__)
+        {
             // main thread has its stack separated from the thread context
             total_stack = uint32_t((const uint8_t *)&__main_thread_stack_end__ - (const uint8_t *)&__main_thread_stack_base__);
-        } else {
+        }
+        else
+        {
             // all other threads have their thread context pointer
             // above the stack top
             total_stack = uint32_t(tp) - uint32_t(tp->wabase);
@@ -327,31 +267,61 @@ void AP_Periph_FW::show_stack_free()
 }
 #endif
 
-
-
 void AP_Periph_FW::update()
 {
     static uint32_t last_led_ms;
     uint32_t now = AP_HAL::native_millis();
-    if (now - last_led_ms > 1000) {
+    if (now - last_led_ms > 1000)
+    {
         last_led_ms = now;
-#ifdef HAL_GPIO_PIN_LED
-        if (!no_iface_finished_dna) {
-            palToggleLine(HAL_GPIO_PIN_LED);
+#if defined(HAL_GPIO_PIN_LED)
+        if (!no_iface_finished_dna)
+        {
+            // palToggleLine(HAL_GPIO_PIN_LED);
         }
 #endif
+
+// if (hal.serial(3)->available() > 0) {
+//         uart_num_bytes_read = hal.serial(3)->read(buffer, 5);
+//         if (uart_num_bytes_read > 0)
+//             can_printf("UART3: write-%s read %d", buffer, uart_num_bytes_read);
+//     }
+//     if (hal.serial(4)->available() > 0) {
+//         uart_num_bytes_read = hal.serial(4)->read(buffer, 5);
+//         if (uart_num_bytes_read > 0)
+//             can_printf("UART4: write-%s read %d", buffer, uart_num_bytes_read);
+//     }
+
+#if CPN_QUALIFICATION_ENABLE == 1
+
+        do_CPN_qualification_tests();
+
+        /* Test PWM output */
+        // SRV_Channel::Aux_servo_function_t function;
+        // if (pwm_is_incr)
+        // {
+        //     (pwm_curr_val >= PWM_MAX) ? (pwm_is_incr = false) : (pwm_curr_val += PWM_STEP);
+        // }
+        // else
+        // {
+        //     (pwm_curr_val <= PWM_MIN) ? (pwm_is_incr = true) : (pwm_curr_val -= PWM_STEP);
+        // }
+
+        // hal.rcout->write(ch_num, output_pwm);
+#endif
+
 #if 0
-#ifdef HAL_PERIPH_ENABLE_GPS
-        hal.serial(0)->printf("GPS status: %u\n", (unsigned)gps.status());
+#if defined(HAL_PERIPH_ENABLE_GPS)
+        can_printf("GPS status: %u\n", (unsigned)gps.status());
 #endif
-#ifdef HAL_PERIPH_ENABLE_MAG
+#if defined(HAL_PERIPH_ENABLE_MAG)
         const Vector3f &field = compass.get_field();
-        hal.serial(0)->printf("MAG (%d,%d,%d)\n", int(field.x), int(field.y), int(field.z));
+        can_printf("MAG (%d,%d,%d)\n", int(field.x), int(field.y), int(field.z));
 #endif
-#ifdef HAL_PERIPH_ENABLE_BARO
-        hal.serial(0)->printf("BARO H=%u P=%.2f T=%.2f\n", baro.healthy(), baro.get_pressure(), baro.get_temperature());
+#if defined(HAL_PERIPH_ENABLE_BARO)
+        can_printf("BARO H=%u P=%.2f T=%.2f\n", baro.healthy(), baro.get_pressure(), baro.get_temperature());
 #endif
-#ifdef HAL_PERIPH_ENABLE_RANGEFINDER
+#ifdef HAL_PERIPH_ENABLE_RANGEFINDER 
         hal.serial(0)->printf("RNG %u %ucm\n", rangefinder.num_sensors(), rangefinder.distance_cm_orient(ROTATION_NONE));
 #endif
         hal.scheduler->delay(1);
@@ -371,12 +341,13 @@ void AP_Periph_FW::update()
 #if HAL_GCS_ENABLED
         gcs().send_message(MSG_HEARTBEAT);
         gcs().send_message(MSG_SYS_STATUS);
-#endif    
+#endif
     }
 
     static uint32_t last_error_ms;
     const auto &ierr = AP::internalerror();
-    if (now - last_error_ms > 5000 && ierr.errors()) {
+    if (now - last_error_ms > 5000 && ierr.errors())
+    {
         // display internal errors as DEBUG every 5s
         last_error_ms = now;
         can_printf("IERR 0x%x %u", unsigned(ierr.errors()), unsigned(ierr.last_error_line()));
@@ -384,13 +355,15 @@ void AP_Periph_FW::update()
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS && CH_DBG_ENABLE_STACK_CHECK == TRUE
     static uint32_t last_debug_ms;
-    if ((g.debug&(1<<DEBUG_SHOW_STACK)) && now - last_debug_ms > 5000) {
+    if ((g.debug & (1 << DEBUG_SHOW_STACK)) && now - last_debug_ms > 5000)
+    {
         last_debug_ms = now;
         show_stack_free();
     }
 #endif
 
-    if ((g.debug&(1<<DEBUG_AUTOREBOOT)) && AP_HAL::millis() > 15000) {
+    if ((g.debug & (1 << DEBUG_AUTOREBOOT)) && AP_HAL::millis() > 15000)
+    {
         // attempt reboot with HOLD after 15s
         periph.prepare_reboot();
 #if CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS
@@ -400,7 +373,8 @@ void AP_Periph_FW::update()
     }
 
 #ifdef HAL_PERIPH_ENABLE_BATTERY
-    if (now - battery.last_read_ms >= 100) {
+    if (now - battery.last_read_ms >= 100)
+    {
         // update battery at 10Hz
         battery.last_read_ms = now;
         battery.lib.read();
@@ -408,7 +382,8 @@ void AP_Periph_FW::update()
 #endif
 
     static uint32_t fiftyhz_last_update_ms;
-    if (now - fiftyhz_last_update_ms >= 20) {
+    if (now - fiftyhz_last_update_ms >= 20)
+    {
         // update at 50Hz
         fiftyhz_last_update_ms = now;
 #ifdef HAL_PERIPH_ENABLE_NOTIFY
@@ -434,6 +409,177 @@ void AP_Periph_FW::update()
 #endif
 }
 
+#if CPN_QUALIFICATION_ENABLE == 1
+void AP_Periph_FW::do_CPN_qualification_tests()
+{
+
+    test_power();
+    test_baro();
+    // test_IMU();
+    // test_Magnetometer();
+    test_serial();
+    // test_GPIO();
+    test_PWM();
+    test_Heartbeat();
+}
+
+void AP_Periph_FW::test_power()
+{
+    char ADC_status = 'N';
+
+    #define ADC5_FACTOR 0.002864
+    /* Test ADC inputs */
+    adc_read_val = adc5->read_average();
+    ADC_status = (adc_read_val > 2104 && adc_read_val < 2304) ? 'Y' : 'N';
+    if (adc_read_val > 0)
+        can_printf("ADC 5: (%c) \t %.2f", ADC_status, adc_read_val);
+
+    adc_read_val = adc6->read_average();
+    ADC_status = (adc_read_val > 2646 && adc_read_val < 2846) ? 'Y' : 'N';
+    if (adc_read_val > 0)
+        can_printf("ADC 6: (%c) \t %.2f", ADC_status, adc_read_val);
+
+    adc_read_val = adc8->read_average();
+    ADC_status = (adc_read_val < 15) ? 'Y' : 'N';
+    if (adc_read_val > 0)
+        can_printf("ADC 8: (%c) \t %.2f", ADC_status, adc_read_val);
+
+    adc_read_val = adc9->read_average();
+    ADC_status = (adc_read_val < 60) ? 'Y' : 'N';
+    if (adc_read_val > 0)
+        can_printf("ADC 9: (%c) \t %.2f", ADC_status, adc_read_val);
+}
+
+void AP_Periph_FW::test_baro()
+{
+    
+    baro.update();
+    char baro_status = (baro.healthy() == 1) ? 'Y' : 'N';
+    can_printf("BARO : (%c) \t P=%.0f T=%.0f\n", baro_status, baro.get_pressure(), baro.get_temperature());
+}
+
+void AP_Periph_FW::test_IMU()
+{
+    
+}
+
+void AP_Periph_FW::test_Magnetometer()
+{
+    compass.read();
+    const Vector3f &field = compass.get_field();
+    can_printf("MAG (%d,%d,%d)\n", int(field.x), int(field.y), int(field.z));
+}
+
+void AP_Periph_FW::test_serial()
+{
+    char test_serial = 'N';
+    /* Test UART */
+
+    if (hal.serial(0) != nullptr) {
+        hal.serial(0)->write("UART0");
+    }
+    if (hal.serial(1) != nullptr) {
+        hal.serial(1)->write("UART1");
+    }
+    if (hal.serial(2) != nullptr) {
+        hal.serial(2)->write("UART2");
+    }
+    if (hal.serial(3) != nullptr)
+    {
+        hal.serial(3)->write("UART3");
+    }
+    if (hal.serial(4) != nullptr)
+    {
+        hal.serial(4)->write("UART4");
+    }
+
+    if (hal.serial(0)->available() > 0) {
+        uart_num_bytes_read = hal.serial(0)->read(buffer, 5);
+        test_serial = (uart_num_bytes_read == 5) ? 'Y' : 'N';
+        if (uart_num_bytes_read > 0)
+            can_printf("UART0: (%c) \t %s", test_serial, buffer);
+    }
+    if (hal.serial(1)->available() > 0) {
+        uart_num_bytes_read = hal.serial(1)->read(buffer, 5);
+        test_serial = (uart_num_bytes_read == 5) ? 'Y' : 'N';
+        if (uart_num_bytes_read > 0)
+            can_printf("UART1: (%c) \t %s", test_serial, buffer);
+    }
+    if (hal.serial(2)->available() > 0) {
+        uart_num_bytes_read = hal.serial(2)->read(buffer, 5);
+        test_serial = (uart_num_bytes_read == 5) ? 'Y' : 'N';
+        if (uart_num_bytes_read > 0)
+            can_printf("UART2: (%c) \t %s", test_serial, buffer);
+    }
+    if (hal.serial(3)->available() > 0)
+    {
+        uart_num_bytes_read = hal.serial(3)->read(buffer, 5);
+        test_serial = (uart_num_bytes_read == 5) ? 'Y' : 'N';
+        if (uart_num_bytes_read > 0)
+            can_printf("UART3: (%c) \t %s", test_serial, buffer);
+    }
+    if (hal.serial(4)->available() > 0)
+    {
+        uart_num_bytes_read = hal.serial(4)->read(buffer, 5);
+        test_serial = (uart_num_bytes_read == 5) ? 'Y' : 'N';
+        if (uart_num_bytes_read > 0)
+            can_printf("UART4: (%c) \t %s", test_serial, buffer);
+    }
+}
+
+void AP_Periph_FW::test_GPIO()
+{
+    // char test_gps = 'N';
+    gps.update();
+    can_printf("GPS status: %u\n", (unsigned)gps.status());
+    // can_printf("GPS test captured in Serial test");
+}
+
+void AP_Periph_FW::test_PWM() {
+    /* Test PWM output */
+    // SRV_Channel::Aux_servo_function_t function;
+    if (pwm_is_incr) {
+        (pwm_curr_val >= PWM_MAX) ? (pwm_is_incr = false) : (pwm_curr_val += PWM_STEP);
+    }
+    else {
+        (pwm_curr_val <= PWM_MIN) ? (pwm_is_incr = true) : (pwm_curr_val -= PWM_STEP);
+    }
+
+    periph.rcout_handle_safety_state(1);
+    hal.util->set_soft_armed(1);
+
+    int16_t data[20] = {pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val};
+    periph.rcout_esc(data, 8);
+
+    // hal.rcout->write(33, pwm_curr_val);
+    // periph.rcout_srv(33, pwm_curr_val);
+    // periph.rcout_srv(1, pwm_curr_val);
+    // periph.rcout_srv(2, pwm_curr_val);
+    // periph.rcout_srv(3, pwm_curr_val);
+    // periph.rcout_srv(4, pwm_curr_val);
+}
+
+void AP_Periph_FW::test_Heartbeat()
+{
+    uint32_t now = AP_HAL::native_millis();
+
+    const uint32_t led_pattern = 0xB6AAD5B6; /* Morse code for "Pilot = .__. .. ._.. ____" */
+    const uint32_t led_change_period = 250;
+    static uint8_t led_idx = 0;
+    static uint32_t last_led_change;
+
+    if ((now - last_led_change > led_change_period))
+    {
+        // blink LED in recognisable pattern while waiting for DNA
+        palWriteLine(HAL_GPIO_PIN_LED, (led_pattern & (1U << led_idx)) ? 1 : 0);
+
+        led_idx = (led_idx + 1) % 32;
+        last_led_change = now;
+    }
+}
+
+#endif
+
 #ifdef HAL_PERIPH_LISTEN_FOR_SERIAL_UART_REBOOT_CMD_PORT
 // check for uploader.py reboot command
 void AP_Periph_FW::check_for_serial_reboot_cmd(const int8_t serial_index)
@@ -449,35 +595,42 @@ void AP_Periph_FW::check_for_serial_reboot_cmd(const int8_t serial_index)
     //            self.__send(uploader.NSH_INIT)
     //            self.__send(uploader.NSH_REBOOT)
 
-    for (uint8_t i=0; i<hal.num_serial; i++) {
-        if (serial_index >= 0 && serial_index != i) {
+    for (uint8_t i = 0; i < hal.num_serial; i++)
+    {
+        if (serial_index >= 0 && serial_index != i)
+        {
             // a specific serial port was selected but this is not it
             continue;
         }
 
         auto *uart = hal.serial(i);
-        if (uart == nullptr || !uart->is_initialized()) {
+        if (uart == nullptr || !uart->is_initialized())
+        {
             continue;
         }
 
         uint32_t available = MIN(uart->available(), 1000U);
-        while (available-- > 0) {
+        while (available-- > 0)
+        {
             const char reboot_string[] = "\r\r\rreboot -b\n\r\r\rreboot\n";
-            const char reboot_string_len = sizeof(reboot_string)-1; // -1 is to remove the null termination
+            const char reboot_string_len = sizeof(reboot_string) - 1; // -1 is to remove the null termination
             static uint16_t index[hal.num_serial];
 
             const int16_t data = uart->read();
-            if (data < 0 || data > 0xff) {
+            if (data < 0 || data > 0xff)
+            {
                 // read error
                 continue;
             }
-            if (index[i] >= reboot_string_len || (uint8_t)data != reboot_string[index[i]]) {
+            if (index[i] >= reboot_string_len || (uint8_t)data != reboot_string[index[i]])
+            {
                 // don't have a perfect match, start over
                 index[i] = 0;
                 continue;
             }
             index[i]++;
-            if (index[i] == reboot_string_len) {
+            if (index[i] == reboot_string_len)
+            {
                 // received reboot msg. Trigger a reboot and stay in the bootloader
                 prepare_reboot();
                 hal.scheduler->reboot(true);
@@ -492,24 +645,24 @@ void AP_Periph_FW::check_for_serial_reboot_cmd(const int8_t serial_index)
 void AP_Periph_FW::prepare_reboot()
 {
 #ifdef HAL_PERIPH_ENABLE_RC_OUT
-        // force safety on
-        hal.rcout->force_safety_on();
+    // force safety on
+    hal.rcout->force_safety_on();
 #endif
 
-        // flush pending parameter writes
-        AP_Param::flush();
+    // flush pending parameter writes
+    AP_Param::flush();
 
-        // do not process incoming mavlink messages while we delay:
-        hal.scheduler->register_delay_callback(nullptr, 5);
+    // do not process incoming mavlink messages while we delay:
+    hal.scheduler->register_delay_callback(nullptr, 5);
 
-        // delay to give the ACK a chance to get out, the LEDs to flash,
-        // the IO board safety to be forced on, the parameters to flush,
-        hal.scheduler->delay(40);
+    // delay to give the ACK a chance to get out, the LEDs to flash,
+    // the IO board safety to be forced on, the parameters to flush,
+    hal.scheduler->delay(40);
 }
 
 AP_Periph_FW *AP_Periph_FW::_singleton;
 
-AP_Periph_FW& AP::periph()
+AP_Periph_FW &AP::periph()
 {
     return *AP_Periph_FW::get_singleton();
 }

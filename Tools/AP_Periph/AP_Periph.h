@@ -44,6 +44,15 @@
 
 #include "Parameters.h"
 
+
+#define CPN_QUALIFICATION_ENABLE 1
+
+#if CPN_QUALIFICATION_ENABLE == 1
+#define PWM_MIN 1000
+#define PWM_MAX 2000
+#define PWM_STEP 100
+#endif
+
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
 void stm32_watchdog_init();
 void stm32_watchdog_pat();
@@ -90,6 +99,43 @@ public:
     void load_parameters();
     void prepare_reboot();
     bool canfdout() const { return (g.can_fdmode == 1); }
+
+#if CPN_QUALIFICATION_ENABLE == 1
+
+    void do_CPN_qualification_tests();
+    void test_power();
+    void test_baro();
+    void test_IMU();
+    void test_Magnetometer();
+    void test_serial();
+    void test_GPIO();
+    void test_PWM();
+    void test_Heartbeat();
+
+    uint8_t uart_num_bytes_read;
+    uint8_t buffer[10];
+    float adc_read_val = 0.0;
+    int16_t pwm_curr_val = 0;
+    bool pwm_is_incr = true;
+
+    AP_HAL::AnalogSource *adc1;
+    AP_HAL::AnalogSource *adc2;
+    AP_HAL::AnalogSource *adc3;
+    AP_HAL::AnalogSource *adc4;
+    AP_HAL::AnalogSource *adc5;
+    AP_HAL::AnalogSource *adc6;
+    AP_HAL::AnalogSource *adc7;
+    AP_HAL::AnalogSource *adc8;
+    AP_HAL::AnalogSource *adc9;
+    AP_HAL::AnalogSource *adc10;
+    AP_HAL::AnalogSource *adc11;
+    AP_HAL::AnalogSource *adc12;
+    AP_HAL::AnalogSource *adc13;
+    AP_HAL::AnalogSource *adc14;
+    AP_HAL::AnalogSource *adc15;
+    AP_HAL::AnalogSource *adc16;
+
+#endif
 
 #ifdef HAL_PERIPH_LISTEN_FOR_SERIAL_UART_REBOOT_CMD_PORT
     void check_for_serial_reboot_cmd(const int8_t serial_index);
