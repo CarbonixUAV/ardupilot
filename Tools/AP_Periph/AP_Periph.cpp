@@ -123,27 +123,12 @@ void AP_Periph_FW::init()
 
 /* For testing CPN boards. Initialize all components here */
 #if CPN_QUALIFICATION_ENABLE == 1
-    can_printf("CPN Qualification test");
-
-    // adc1 = hal.analogin->channel(10);
-    // adc2 = hal.analogin->channel(11);
-
-    // adc1 = hal.analogin->channel(1);
-    // adc2 = hal.analogin->channel(2);
-    // adc3 = hal.analogin->channel(3);
-    // adc4 = hal.analogin->channel(4);
+    can_printf("CPN Qualification test");    
     adc5 = hal.analogin->channel(5);
     adc6 = hal.analogin->channel(6);
     // adc7 = hal.analogin->channel(7);
     adc8 = hal.analogin->channel(8);
     adc9 = hal.analogin->channel(9);
-    // adc10 = hal.analogin->channel(10);
-    // adc11 = hal.analogin->channel(11);
-    // adc12 = hal.analogin->channel(12);
-    // adc13 = hal.analogin->channel(13);
-    // adc14 = hal.analogin->channel(14);
-    // adc15 = hal.analogin->channel(15);
-    // adc16 = hal.analogin->channel(16);
 
     hal.serial(0)->begin(9600);
     hal.serial(1)->begin(9600);
@@ -156,6 +141,11 @@ void AP_Periph_FW::init()
     compass.init();
 
     // gps.init();
+#endif
+
+#ifdef FUEL_FLOW_TEST_ENABLE
+    can_printf("In-line FuelFlow Sensor Test");    
+    hal.serial(3)->begin(115200);
 #endif
 
 #ifdef HAL_PERIPH_ENABLE_NOTIFY
@@ -281,33 +271,8 @@ void AP_Periph_FW::update()
         }
 #endif
 
-// if (hal.serial(3)->available() > 0) {
-//         uart_num_bytes_read = hal.serial(3)->read(buffer, 5);
-//         if (uart_num_bytes_read > 0)
-//             can_printf("UART3: write-%s read %d", buffer, uart_num_bytes_read);
-//     }
-//     if (hal.serial(4)->available() > 0) {
-//         uart_num_bytes_read = hal.serial(4)->read(buffer, 5);
-//         if (uart_num_bytes_read > 0)
-//             can_printf("UART4: write-%s read %d", buffer, uart_num_bytes_read);
-//     }
-
 #if CPN_QUALIFICATION_ENABLE == 1
-
-        do_CPN_qualification_tests();
-
-        /* Test PWM output */
-        // SRV_Channel::Aux_servo_function_t function;
-        // if (pwm_is_incr)
-        // {
-        //     (pwm_curr_val >= PWM_MAX) ? (pwm_is_incr = false) : (pwm_curr_val += PWM_STEP);
-        // }
-        // else
-        // {
-        //     (pwm_curr_val <= PWM_MIN) ? (pwm_is_incr = true) : (pwm_curr_val -= PWM_STEP);
-        // }
-
-        // hal.rcout->write(ch_num, output_pwm);
+        do_CPN_qualification_tests();       
 #endif
 
 #if 0
@@ -411,63 +376,8 @@ void AP_Periph_FW::update()
 
 #if CPN_QUALIFICATION_ENABLE == 1
 void AP_Periph_FW::do_CPN_qualification_tests()
-{
-
-    test_power();
-    test_baro();
-    // test_IMU();
-    // test_Magnetometer();
+{   
     test_serial();
-    // test_GPIO();
-    test_PWM();
-    test_Heartbeat();
-}
-
-void AP_Periph_FW::test_power()
-{
-    char ADC_status = 'N';
-
-    #define ADC5_FACTOR 0.002864
-    /* Test ADC inputs */
-    adc_read_val = adc5->read_average();
-    ADC_status = (adc_read_val > 2104 && adc_read_val < 2304) ? 'Y' : 'N';
-    if (adc_read_val > 0)
-        can_printf("ADC 5: (%c) \t %.2f", ADC_status, adc_read_val);
-
-    adc_read_val = adc6->read_average();
-    ADC_status = (adc_read_val > 2646 && adc_read_val < 2846) ? 'Y' : 'N';
-    if (adc_read_val > 0)
-        can_printf("ADC 6: (%c) \t %.2f", ADC_status, adc_read_val);
-
-    adc_read_val = adc8->read_average();
-    ADC_status = (adc_read_val < 15) ? 'Y' : 'N';
-    if (adc_read_val > 0)
-        can_printf("ADC 8: (%c) \t %.2f", ADC_status, adc_read_val);
-
-    adc_read_val = adc9->read_average();
-    ADC_status = (adc_read_val < 60) ? 'Y' : 'N';
-    if (adc_read_val > 0)
-        can_printf("ADC 9: (%c) \t %.2f", ADC_status, adc_read_val);
-}
-
-void AP_Periph_FW::test_baro()
-{
-    
-    baro.update();
-    char baro_status = (baro.healthy() == 1) ? 'Y' : 'N';
-    can_printf("BARO : (%c) \t P=%.0f T=%.0f\n", baro_status, baro.get_pressure(), baro.get_temperature());
-}
-
-void AP_Periph_FW::test_IMU()
-{
-    
-}
-
-void AP_Periph_FW::test_Magnetometer()
-{
-    compass.read();
-    const Vector3f &field = compass.get_field();
-    can_printf("MAG (%d,%d,%d)\n", int(field.x), int(field.y), int(field.z));
 }
 
 void AP_Periph_FW::test_serial()
@@ -475,42 +385,11 @@ void AP_Periph_FW::test_serial()
     char test_serial = 'N';
     /* Test UART */
 
-    if (hal.serial(0) != nullptr) {
-        hal.serial(0)->write("UART0");
-    }
-    if (hal.serial(1) != nullptr) {
-        hal.serial(1)->write("UART1");
-    }
-    if (hal.serial(2) != nullptr) {
-        hal.serial(2)->write("UART2");
-    }
     if (hal.serial(3) != nullptr)
     {
         hal.serial(3)->write("UART3");
     }
-    if (hal.serial(4) != nullptr)
-    {
-        hal.serial(4)->write("UART4");
-    }
 
-    if (hal.serial(0)->available() > 0) {
-        uart_num_bytes_read = hal.serial(0)->read(buffer, 5);
-        test_serial = (uart_num_bytes_read == 5) ? 'Y' : 'N';
-        if (uart_num_bytes_read > 0)
-            can_printf("UART0: (%c) \t %s", test_serial, buffer);
-    }
-    if (hal.serial(1)->available() > 0) {
-        uart_num_bytes_read = hal.serial(1)->read(buffer, 5);
-        test_serial = (uart_num_bytes_read == 5) ? 'Y' : 'N';
-        if (uart_num_bytes_read > 0)
-            can_printf("UART1: (%c) \t %s", test_serial, buffer);
-    }
-    if (hal.serial(2)->available() > 0) {
-        uart_num_bytes_read = hal.serial(2)->read(buffer, 5);
-        test_serial = (uart_num_bytes_read == 5) ? 'Y' : 'N';
-        if (uart_num_bytes_read > 0)
-            can_printf("UART2: (%c) \t %s", test_serial, buffer);
-    }
     if (hal.serial(3)->available() > 0)
     {
         uart_num_bytes_read = hal.serial(3)->read(buffer, 5);
@@ -518,45 +397,6 @@ void AP_Periph_FW::test_serial()
         if (uart_num_bytes_read > 0)
             can_printf("UART3: (%c) \t %s", test_serial, buffer);
     }
-    if (hal.serial(4)->available() > 0)
-    {
-        uart_num_bytes_read = hal.serial(4)->read(buffer, 5);
-        test_serial = (uart_num_bytes_read == 5) ? 'Y' : 'N';
-        if (uart_num_bytes_read > 0)
-            can_printf("UART4: (%c) \t %s", test_serial, buffer);
-    }
-}
-
-void AP_Periph_FW::test_GPIO()
-{
-    // char test_gps = 'N';
-    gps.update();
-    can_printf("GPS status: %u\n", (unsigned)gps.status());
-    // can_printf("GPS test captured in Serial test");
-}
-
-void AP_Periph_FW::test_PWM() {
-    /* Test PWM output */
-    // SRV_Channel::Aux_servo_function_t function;
-    if (pwm_is_incr) {
-        (pwm_curr_val >= PWM_MAX) ? (pwm_is_incr = false) : (pwm_curr_val += PWM_STEP);
-    }
-    else {
-        (pwm_curr_val <= PWM_MIN) ? (pwm_is_incr = true) : (pwm_curr_val -= PWM_STEP);
-    }
-
-    periph.rcout_handle_safety_state(1);
-    hal.util->set_soft_armed(1);
-
-    int16_t data[20] = {pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val};
-    periph.rcout_esc(data, 8);
-
-    // hal.rcout->write(33, pwm_curr_val);
-    // periph.rcout_srv(33, pwm_curr_val);
-    // periph.rcout_srv(1, pwm_curr_val);
-    // periph.rcout_srv(2, pwm_curr_val);
-    // periph.rcout_srv(3, pwm_curr_val);
-    // periph.rcout_srv(4, pwm_curr_val);
 }
 
 void AP_Periph_FW::test_Heartbeat()
@@ -575,6 +415,27 @@ void AP_Periph_FW::test_Heartbeat()
 
         led_idx = (led_idx + 1) % 32;
         last_led_change = now;
+    }
+}
+
+#endif
+
+#ifdef FUEL_FLOW_TEST_ENABLE == 1
+
+void AP_Periph_FW::getFuelFlowSerial()
+{
+
+    if (hal.serial(3) != nullptr)
+    {
+        hal.serial(3)->write("UART3");
+    }
+
+    if (hal.serial(3)->available() > 0)
+    {
+        uart_num_bytes_read = hal.serial(3)->read(buffer, 5);
+        test_serial = (uart_num_bytes_read == 5) ? 'Y' : 'N';
+        if (uart_num_bytes_read > 0)
+            can_printf("UART3: (%c) \t %s", test_serial, buffer);
     }
 }
 

@@ -44,8 +44,8 @@
 
 #include "Parameters.h"
 
-
-#define CPN_QUALIFICATION_ENABLE 1
+//#define CPN_QUALIFICATION_ENABLE
+#define FUEL_FLOW_TEST_ENABLE 1
 
 #if CPN_QUALIFICATION_ENABLE == 1
 #define PWM_MIN 1000
@@ -135,6 +135,11 @@ public:
     AP_HAL::AnalogSource *adc15;
     AP_HAL::AnalogSource *adc16;
 
+#endif
+
+#if FUEL_FLOW_TEST_ENABLE == 1
+    uint8_t flowBuffer[10];
+    void getFuelFlowSerial();
 #endif
 
 #ifdef HAL_PERIPH_LISTEN_FOR_SERIAL_UART_REBOOT_CMD_PORT
