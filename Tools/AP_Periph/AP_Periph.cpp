@@ -156,6 +156,12 @@ void AP_Periph_FW::init()
     compass.init();
 
     // gps.init();
+
+    hal.rcout->init();
+    // hal.rcout->set_serial_led_num_LEDs(HAL_PERIPH_NEOPIXEL_CHAN_WITHOUT_NOTIFY, HAL_PERIPH_NEOPIXEL_COUNT_WITHOUT_NOTIFY, AP_HAL::RCOutput::MODE_NEOPIXEL);
+    rcout_init();
+
+    
 #endif
 
 #ifdef HAL_PERIPH_ENABLE_NOTIFY
@@ -416,9 +422,9 @@ void AP_Periph_FW::do_CPN_qualification_tests()
     test_power();
     test_baro();
     // test_IMU();
-    // test_Magnetometer();
+    test_Magnetometer();
     test_serial();
-    // test_GPIO();
+    test_GPIO();
     test_PWM();
     test_Heartbeat();
 }
@@ -545,18 +551,13 @@ void AP_Periph_FW::test_PWM() {
         (pwm_curr_val <= PWM_MIN) ? (pwm_is_incr = true) : (pwm_curr_val -= PWM_STEP);
     }
 
-    periph.rcout_handle_safety_state(1);
+    periph.rcout_handle_safety_state(255);
     hal.util->set_soft_armed(1);
 
     int16_t data[20] = {pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val, pwm_curr_val};
     periph.rcout_esc(data, 8);
 
-    // hal.rcout->write(33, pwm_curr_val);
-    // periph.rcout_srv(33, pwm_curr_val);
-    // periph.rcout_srv(1, pwm_curr_val);
-    // periph.rcout_srv(2, pwm_curr_val);
-    // periph.rcout_srv(3, pwm_curr_val);
-    // periph.rcout_srv(4, pwm_curr_val);
+    can_printf ("PWM v: %d", pwm_curr_val);
 }
 
 void AP_Periph_FW::test_Heartbeat()
