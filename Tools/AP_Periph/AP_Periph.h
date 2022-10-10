@@ -102,6 +102,15 @@ public:
 
 #if CPN_QUALIFICATION_ENABLE == 1
 
+#define ADC5_READ_MIN 2800
+#define ADC5_READ_MAX 3100
+#define ADC6_READ_MIN 2700
+#define ADC6_READ_MAX 3000
+#define ADC8_READ_MIN 7.8
+#define ADC8_READ_MAX 9.8
+#define ADC9_READ_MIN 80
+#define ADC9_READ_MAX 95
+
     void do_CPN_qualification_tests();
     void test_power();
     void test_baro();
