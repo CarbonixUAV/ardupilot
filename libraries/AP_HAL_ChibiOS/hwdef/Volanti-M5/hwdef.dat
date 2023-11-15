@@ -1,0 +1,12 @@
+include ../CarbonixF405/hwdef.dat
+
+undef CAN_APP_NODE_NAME
+
+define CAN_APP_NODE_NAME "VOl-CPN-15-Pusher"
+
+# enable ESC control
+define HAL_WITH_ESC_TELEM 1
+
+# enable Rangefinder
+define HAL_PERIPH_ENABLE_RANGEFINDER 1
+define HAL_PERIPH_ENABLE_BATTERY 1

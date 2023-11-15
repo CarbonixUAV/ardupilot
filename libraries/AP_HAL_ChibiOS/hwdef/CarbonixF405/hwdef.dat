@@ -16,7 +16,7 @@ APJ_BOARD_ID 1064
 # setup build for a peripheral firmware
 env AP_PERIPH 1
 
-# crystal frequency set to 0 to use internal clock
+# crystal frequency set to 0 to use internal clock; currently configured for external crystal 12MHZ
 OSCILLATOR_HZ 0
 
 #MCU F405 Flash 1024
@@ -115,27 +115,13 @@ define HAL_NO_MONITOR_THREAD
 
 define AP_PARAM_MAX_EMBEDDED_PARAM 512
 
-define HAL_PERIPH_ENABLE_MAG
-define HAL_PERIPH_ENABLE_BARO
 define HAL_PERIPH_ENABLE_RC_OUT
 
 # enable ESC control
 define HAL_SUPPORT_RCOUT_SERIAL 1
-define HAL_WITH_ESC_TELEM 1
 
-# enable GPS
-define HAL_PERIPH_ENABLE_GPS
-define HAL_PERIPH_GPS_PORT_DEFAULT 2
-#define HAL_PERIPH_ENABLE_NOTIFY
-#define HAL_PERIPH_ENABLE_NCP5623_LED_WITHOUT_NOTIFY
+# define HAL_PERIPH_ARM_MONITORING_ENABLE 1
 
-# default ADSB off by setting 0 baudrate
-define HAL_PERIPH_ENABLE_ADSB
-define HAL_PERIPH_ADSB_PORT_DEFAULT 3
-define HAL_PERIPH_ADSB_BAUD_DEFAULT 57600
-
-BARO MS56XX I2C:0:0x76
-COMPASS MMC5XX3 I2C:0:0x30 false ROTATION_NONE
 
 
 

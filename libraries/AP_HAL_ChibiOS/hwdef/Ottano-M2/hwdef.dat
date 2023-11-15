@@ -1,0 +1,10 @@
+include ../CarbonixF405/hwdef.dat
+
+undef CAN_APP_NODE_NAME
+
+define CAN_APP_NODE_NAME "OTT-CPN-12-Motor-2"
+
+# enable ESC control
+define HAL_WITH_ESC_TELEM 1
+define HAL_PERIPH_ENABLE_ESC_APDHVPRO200
+
